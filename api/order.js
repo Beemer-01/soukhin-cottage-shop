@@ -19,7 +19,7 @@ async function saveToSheet(orderData) {
 
   await sheets.spreadsheets.values.append({
     spreadsheetId: process.env.GOOGLE_SHEET_ID,
-    range: 'Orders!A:K',
+    range: 'A:K',
     valueInputOption: 'USER_ENTERED',
     requestBody: {
       values: [[

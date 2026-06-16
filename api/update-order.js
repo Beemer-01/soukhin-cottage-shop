@@ -34,7 +34,7 @@ module.exports = async function handler(req, res) {
 
     await sheets.spreadsheets.values.update({
       spreadsheetId: process.env.GOOGLE_SHEET_ID,
-      range: `Orders!K${rowIndex}`,
+      range: `K${rowIndex}`,
       valueInputOption: 'USER_ENTERED',
       requestBody: { values: [[status]] }
     });
