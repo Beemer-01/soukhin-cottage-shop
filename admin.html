@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Admin — সৌখিন কুটিরশিল্প</title>
+  <style>
+    :root {
+      --primary: #8B4513; --primary-dark: #6B3410; --accent: #D4A853;
+      --accent-light: #F5E6C8; --bg: #FAF7F2; --surface: #fff;
+      --text: #2C1810; --muted: #7A5C4A; --border: #E8D5C0;
+      --success: #2E7D32; --danger: #C62828; --warning: #E65100;
+      --info: #1565C0;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+    /* LOGIN */
+    .login-screen {
+      min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px;
+    }
+    .login-card {
+      background: var(--surface); border-radius: 16px; padding: 40px 36px;
+      width: 100%; max-width: 380px; box-shadow: 0 8px 32px rgba(139,69,19,0.15);
+      text-align: center;
+    }
+    .login-logo { font-size: 2.5rem; margin-bottom: 8px; }
+    .login-card h1 { font-size: 1.2rem; color: var(--primary); margin-bottom: 4px; }
+    .login-card p { font-size: 0.85rem; color: var(--muted); margin-bottom: 28px; }
+    .login-card input {
+      width: 100%; padding: 12px 16px; border: 1.5px solid var(--border);
+      border-radius: 8px; font-size: 0.95rem; margin-bottom: 14px; outline: none;
+      transition: border-color 0.18s;
+    }
+    .login-card input:focus { border-color: var(--primary); }
+    .login-card button {
+      width: 100%; padding: 13px; background: var(--primary); color: #fff;
+      border: none; border-radius: 8px; font-size: 0.95rem; font-weight: 700;
+      cursor: pointer; transition: background 0.18s;
+    }
+    .login-card button:hover { background: var(--primary-dark); }
+    .login-error { color: var(--danger); font-size: 0.85rem; margin-top: 10px; }
+
+    /* DASHBOARD */
+    .dashboard { display: none; }
+    header {
+      background: var(--primary); color: #fff; padding: 0 28px; height: 64px;
+      display: flex; align-items: center; justify-content: space-between;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.2); position: sticky; top: 0; z-index: 100;
+    }
+    .header-left { display: flex; flex-direction: column; }
+    .header-left span:first-child { font-weight: 700; font-size: 1rem; }
+    .header-left span:last-child { font-size: 0.72rem; opacity: 0.75; }
+    .header-right { display: flex; gap: 12px; align-items: center; }
+    .btn-logout {
+      background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3);
+      color: #fff; padding: 7px 16px; border-radius: 6px; cursor: pointer; font-size: 0.85rem;
+    }
+    .btn-refresh {
+      background: var(--accent); border: none; color: var(--text);
+      padding: 7px 16px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; font-weight: 600;
+    }
+
+    main { max-width: 1400px; margin: 0 auto; padding: 28px 24px; }
+
+    /* STATS */
+    .stats-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 16px; margin-bottom: 28px;
+    }
+    .stat-card {
+      background: var(--surface); border-radius: 12px; padding: 20px;
+      box-shadow: 0 2px 8px rgba(139,69,19,0.08); text-align: center;
+    }
+    .stat-icon { font-size: 1.8rem; margin-bottom: 6px; }
+    .stat-val { font-size: 2rem; font-weight: 800; color: var(--primary); line-height: 1; }
+    .stat-label { font-size: 0.78rem; color: var(--muted); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+    /* FILTERS */
+    .table-controls {
+      background: var(--surface); border-radius: 12px; padding: 16px 20px;
+      display: flex; gap: 12px; flex-wrap: wrap; align-items: center;
+      margin-bottom: 20px; box-shadow: 0 2px 8px rgba(139,69,19,0.06);
+    }
+    .table-controls input {
+      padding: 8px 14px; border: 1.5px solid var(--border); border-radius: 8px;
+      font-size: 0.88rem; outline: none; min-width: 220px;
+    }
+    .table-controls input:focus { border-color: var(--primary); }
+    .filter-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+    .fchip {
+      padding: 5px 14px; border-radius: 999px; border: 1.5px solid var(--border);
+      background: #fff; font-size: 0.78rem; cursor: pointer; font-weight: 500;
+      color: var(--muted); transition: all 0.15s;
+    }
+    .fchip.active, .fchip:hover { background: var(--primary); color: #fff; border-color: var(--primary); }
+
+    /* TABLE */
+    .table-wrap {
+      background: var(--surface); border-radius: 12px; overflow: hidden;
+      box-shadow: 0 2px 8px rgba(139,69,19,0.08);
+    }
+    table { width: 100%; border-collapse: collapse; }
+    thead { background: var(--primary); color: #fff; }
+    th { padding: 12px 14px; text-align: left; font-size: 0.78rem; font-weight: 600; letter-spacing: 0.4px; white-space: nowrap; }
+    td { padding: 12px 14px; font-size: 0.85rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #fdf9f5; }
+    .items-cell { max-width: 220px; line-height: 1.5; color: var(--muted); font-size: 0.8rem; }
+    .order-id { font-weight: 700; color: var(--primary); font-size: 0.82rem; }
+    .customer-name { font-weight: 600; }
+    .phone-link { color: var(--primary); text-decoration: none; }
+    .phone-link:hover { text-decoration: underline; }
+    .payment-badge {
+      display: inline-block; padding: 2px 10px; border-radius: 999px;
+      font-size: 0.72rem; font-weight: 600;
+    }
+    .pay-cod { background: #e8f5e9; color: #2e7d32; }
+    .pay-bkash { background: #fce4ec; color: #c2185b; }
+
+    /* STATUS BADGE + SELECT */
+    .status-wrap { display: flex; align-items: center; gap: 6px; }
+    .status-dot {
+      width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+    }
+    .status-select {
+      border: 1.5px solid var(--border); border-radius: 6px; padding: 4px 8px;
+      font-size: 0.78rem; cursor: pointer; background: #fff; outline: none;
+      font-family: inherit;
+    }
+    .status-select:focus { border-color: var(--primary); }
+
+    .status-Pending    { color: #E65100; } .dot-Pending    { background: #E65100; }
+    .status-Confirmed  { color: #1565C0; } .dot-Confirmed  { background: #1565C0; }
+    .status-Processing { color: #6A1B9A; } .dot-Processing { background: #6A1B9A; }
+    .status-Shipped    { color: #00695C; } .dot-Shipped    { background: #00695C; }
+    .status-Delivered  { color: #2E7D32; } .dot-Delivered  { background: #2E7D32; }
+    .status-Cancelled  { color: #B71C1C; } .dot-Cancelled  { background: #B71C1C; }
+
+    .save-btn {
+      padding: 4px 10px; background: var(--primary); color: #fff; border: none;
+      border-radius: 6px; font-size: 0.75rem; cursor: pointer; font-weight: 600;
+      transition: background 0.15s;
+    }
+    .save-btn:hover { background: var(--primary-dark); }
+    .save-btn.saved { background: var(--success); }
+
+    .empty-state { text-align: center; padding: 60px 0; color: var(--muted); }
+    .empty-state .icon { font-size: 3rem; margin-bottom: 12px; }
+
+    .loading { text-align: center; padding: 48px; color: var(--muted); font-size: 1.1rem; }
+
+    @media (max-width: 768px) {
+      main { padding: 16px 12px; }
+      .table-wrap { overflow-x: auto; }
+      table { min-width: 700px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- LOGIN SCREEN -->
+<div class="login-screen" id="loginScreen">
+  <div class="login-card">
+    <div class="login-logo">🏺</div>
+    <h1>Admin Dashboard</h1>
+    <p>সৌখিন কুটিরশিল্প — Order Management</p>
+    <input type="password" id="passwordInput" placeholder="Enter admin password" onkeydown="if(event.key==='Enter')login()"/>
+    <button onclick="login()">Sign In →</button>
+    <div class="login-error" id="loginError"></div>
+  </div>
+</div>
+
+<!-- DASHBOARD -->
+<div class="dashboard" id="dashboard">
+  <header>
+    <div class="header-left">
+      <span>সৌখিন কুটিরশিল্প — Admin</span>
+      <span>Order Management Dashboard</span>
+    </div>
+    <div class="header-right">
+      <button class="btn-refresh" onclick="loadOrders()">↻ Refresh</button>
+      <button class="btn-logout" onclick="logout()">Logout</button>
+    </div>
+  </header>
+
+  <main>
+    <div class="stats-grid" id="statsGrid">
+      <div class="stat-card"><div class="stat-icon">📦</div><div class="stat-val" id="statTotal">—</div><div class="stat-label">Total Orders</div></div>
+      <div class="stat-card"><div class="stat-icon">🕐</div><div class="stat-val" id="statPending">—</div><div class="stat-label">Pending</div></div>
+      <div class="stat-card"><div class="stat-icon">✅</div><div class="stat-val" id="statConfirmed">—</div><div class="stat-label">Confirmed</div></div>
+      <div class="stat-card"><div class="stat-icon">🚚</div><div class="stat-val" id="statShipped">—</div><div class="stat-label">Shipped</div></div>
+      <div class="stat-card"><div class="stat-icon">🎉</div><div class="stat-val" id="statDelivered">—</div><div class="stat-label">Delivered</div></div>
+      <div class="stat-card"><div class="stat-icon">❌</div><div class="stat-val" id="statCancelled">—</div><div class="stat-label">Cancelled</div></div>
+    </div>
+
+    <div class="table-controls">
+      <input type="text" id="searchInput" placeholder="Search by name, phone, order ID…" oninput="renderTable()"/>
+      <div class="filter-chips" id="filterChips">
+        <button class="fchip active" onclick="setFilter('All', this)">All</button>
+        <button class="fchip" onclick="setFilter('Pending', this)">Pending</button>
+        <button class="fchip" onclick="setFilter('Confirmed', this)">Confirmed</button>
+        <button class="fchip" onclick="setFilter('Processing', this)">Processing</button>
+        <button class="fchip" onclick="setFilter('Shipped', this)">Shipped</button>
+        <button class="fchip" onclick="setFilter('Delivered', this)">Delivered</button>
+        <button class="fchip" onclick="setFilter('Cancelled', this)">Cancelled</button>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <div class="loading" id="tableLoading">Loading orders…</div>
+      <table id="ordersTable" style="display:none">
+        <thead>
+          <tr>
+            <th>Date & Time</th>
+            <th>Order ID</th>
+            <th>Customer</th>
+            <th>Phone</th>
+            <th>Address</th>
+            <th>Items</th>
+            <th>Payment</th>
+            <th>Note</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="ordersBody"></tbody>
+      </table>
+      <div class="empty-state" id="emptyState" style="display:none">
+        <div class="icon">📭</div>
+        <b>No orders found</b><br/>
+        <small>Try a different filter or search term.</small>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+let adminPassword = '';
+let allOrders = [];
+let activeFilter = 'All';
+
+function login() {
+  const pw = document.getElementById('passwordInput').value.trim();
+  if (!pw) return;
+  adminPassword = pw;
+  loadOrders();
+}
+
+function logout() {
+  adminPassword = '';
+  allOrders = [];
+  document.getElementById('loginScreen').style.display = 'flex';
+  document.getElementById('dashboard').style.display = 'none';
+  document.getElementById('passwordInput').value = '';
+  document.getElementById('loginError').textContent = '';
+}
+
+async function loadOrders() {
+  document.getElementById('tableLoading').style.display = 'block';
+  document.getElementById('ordersTable').style.display = 'none';
+  document.getElementById('emptyState').style.display = 'none';
+
+  try {
+    const res = await fetch('/api/admin-orders', {
+      headers: { 'x-admin-password': adminPassword }
+    });
+
+    if (res.status === 401) {
+      document.getElementById('loginError').textContent = 'Incorrect password.';
+      adminPassword = '';
+      return;
+    }
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+
+    allOrders = data.orders.reverse(); // newest first
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('dashboard').style.display = 'block';
+    updateStats();
+    renderTable();
+  } catch (err) {
+    alert('Error loading orders: ' + err.message);
+  } finally {
+    document.getElementById('tableLoading').style.display = 'none';
+  }
+}
+
+function updateStats() {
+  const count = s => allOrders.filter(o => o.status === s).length;
+  document.getElementById('statTotal').textContent = allOrders.length;
+  document.getElementById('statPending').textContent = count('Pending');
+  document.getElementById('statConfirmed').textContent = count('Confirmed');
+  document.getElementById('statShipped').textContent = count('Shipped');
+  document.getElementById('statDelivered').textContent = count('Delivered');
+  document.getElementById('statCancelled').textContent = count('Cancelled');
+}
+
+function setFilter(filter, btn) {
+  activeFilter = filter;
+  document.querySelectorAll('.fchip').forEach(c => c.classList.remove('active'));
+  btn.classList.add('active');
+  renderTable();
+}
+
+function paymentLabel(p) {
+  if (p === 'bkash_personal') return '<span class="payment-badge pay-bkash">bKash Personal</span>';
+  if (p === 'bkash_payment')  return '<span class="payment-badge pay-bkash">bKash Payment</span>';
+  return '<span class="payment-badge pay-cod">Cash on Delivery</span>';
+}
+
+function renderTable() {
+  const q = document.getElementById('searchInput').value.toLowerCase();
+  let filtered = allOrders;
+  if (activeFilter !== 'All') filtered = filtered.filter(o => o.status === activeFilter);
+  if (q) filtered = filtered.filter(o =>
+    o.name.toLowerCase().includes(q) ||
+    o.phone.includes(q) ||
+    o.orderId.toLowerCase().includes(q) ||
+    o.items.toLowerCase().includes(q)
+  );
+
+  const tbody = document.getElementById('ordersBody');
+  document.getElementById('tableLoading').style.display = 'none';
+
+  if (!filtered.length) {
+    document.getElementById('ordersTable').style.display = 'none';
+    document.getElementById('emptyState').style.display = 'block';
+    return;
+  }
+
+  document.getElementById('emptyState').style.display = 'none';
+  document.getElementById('ordersTable').style.display = 'table';
+
+  const statuses = ['Pending','Confirmed','Processing','Shipped','Delivered','Cancelled'];
+
+  tbody.innerHTML = filtered.map(o => `
+    <tr>
+      <td style="white-space:nowrap;font-size:0.78rem;color:var(--muted)">${o.timestamp}</td>
+      <td><div class="order-id">#${o.orderId}</div></td>
+      <td><div class="customer-name">${o.name}</div>${o.email !== '-' ? `<div style="font-size:0.75rem;color:var(--muted)">${o.email}</div>` : ''}</td>
+      <td><a class="phone-link" href="tel:${o.phone}">${o.phone}</a></td>
+      <td style="font-size:0.8rem;color:var(--muted)">${o.address}<br/>${o.city}</td>
+      <td class="items-cell">${o.items.split(' | ').join('<br/>')}</td>
+      <td>${paymentLabel(o.payment)}</td>
+      <td style="font-size:0.78rem;color:var(--muted);max-width:120px">${o.note !== '-' ? o.note : ''}</td>
+      <td>
+        <div class="status-wrap">
+          <div class="status-dot dot-${o.status}"></div>
+          <select class="status-select" id="sel-${o.rowIndex}" onchange="markChanged(${o.rowIndex})">
+            ${statuses.map(s => `<option value="${s}" ${s === o.status ? 'selected' : ''}>${s}</option>`).join('')}
+          </select>
+        </div>
+        <button class="save-btn" id="save-${o.rowIndex}" onclick="updateStatus(${o.rowIndex})" style="margin-top:6px">Save</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function markChanged(rowIndex) {
+  const btn = document.getElementById(`save-${rowIndex}`);
+  if (btn) { btn.textContent = 'Save'; btn.classList.remove('saved'); btn.style.background = ''; }
+}
+
+async function updateStatus(rowIndex) {
+  const select = document.getElementById(`sel-${rowIndex}`);
+  const btn = document.getElementById(`save-${rowIndex}`);
+  const status = select.value;
+
+  btn.textContent = '…';
+  btn.disabled = true;
+
+  try {
+    const res = await fetch('/api/update-order', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPassword },
+      body: JSON.stringify({ rowIndex, status })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+
+    // Update local state
+    const order = allOrders.find(o => o.rowIndex === rowIndex);
+    if (order) order.status = status;
+    updateStats();
+
+    btn.textContent = 'Saved ✓';
+    btn.classList.add('saved');
+    btn.style.background = 'var(--success)';
+  } catch (err) {
+    alert('Error: ' + err.message);
+    btn.textContent = 'Save';
+  } finally {
+    btn.disabled = false;
+  }
+}
+</script>
+</body>
+</html>
