@@ -52,6 +52,12 @@
       border: none; background: var(--accent); color: var(--text); cursor: pointer;
       padding: 0 16px; font-size: 1.1rem;
     }
+    .currency-select {
+      background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3);
+      color: #fff; border-radius: 8px; padding: 8px 10px; font-size: 0.85rem;
+      cursor: pointer; outline: none; font-weight: 600;
+    }
+    .currency-select option { background: var(--primary-dark); color: #fff; }
     .header-actions { display: flex; gap: 8px; align-items: center; }
     .cart-btn {
       position: relative; background: var(--accent); border: none;
@@ -406,6 +412,13 @@
       <button>🔍</button>
     </div>
     <div class="header-actions">
+      <select class="currency-select" id="currencySelect" onchange="changeCurrency(this.value)">
+        <option value="BDT">৳ BDT</option>
+        <option value="USD">$ USD</option>
+        <option value="CAD">$ CAD</option>
+        <option value="GBP">£ GBP</option>
+        <option value="EUR">€ EUR</option>
+      </select>
       <button class="cart-btn" onclick="openCart()">
         🛒 Cart
         <span class="cart-count hidden" id="cartCount">0</span>
@@ -731,6 +744,81 @@ const products = [
   {id:154,name:'Mini Aquarium 8',nameBn:'মিনি একুরিয়াম',  cat:'Mini Aquarium',  img:'images/aquarium/aquarium_8.jpg', price:3000, badge:''},
 ];
 
+// ── CURRENCY ──────────────────────────────────────────────────
+const CURRENCY_SYMBOLS = { BDT: '৳', USD: '$', CAD: 'CA$', GBP: '£', EUR: '€' };
+// Fallback rates from BDT (updated periodically)
+const FALLBACK_RATES = { BDT: 1, USD: 0.0091, CAD: 0.0124, GBP: 0.0072, EUR: 0.0083 };
+let exchangeRates = { ...FALLBACK_RATES };
+let activeCurrency = localStorage.getItem('sk_currency') || 'BDT';
+
+async function fetchExchangeRates() {
+  try {
+    const res = await fetch('https://api.frankfurter.app/latest?from=BDT&to=USD,CAD,GBP,EUR');
+    const data = await res.json();
+    exchangeRates = { BDT: 1, ...data.rates };
+  } catch (e) {
+    // silently use fallback rates
+  }
+}
+
+function convertPrice(bdt) {
+  if (!bdt || bdt <= 0) return null;
+  const converted = bdt * exchangeRates[activeCurrency];
+  const sym = CURRENCY_SYMBOLS[activeCurrency];
+  return activeCurrency === 'BDT'
+    ? `${sym}${Math.round(converted).toLocaleString()}`
+    : `${sym}${converted.toFixed(2)}`;
+}
+
+function changeCurrency(currency) {
+  activeCurrency = currency;
+  localStorage.setItem('sk_currency', currency);
+  renderProducts();
+}
+
+// ── FUZZY SEARCH ──────────────────────────────────────────────
+function fuzzyScore(text, query) {
+  text = text.toLowerCase();
+  query = query.toLowerCase().trim();
+  if (!query) return 1;
+
+  // Exact substring match = highest score
+  if (text.includes(query)) return 100;
+
+  // All words present somewhere
+  const words = query.split(/\s+/);
+  if (words.every(w => text.includes(w))) return 80;
+
+  // Partial word matches
+  const partialMatches = words.filter(w => text.includes(w.slice(0, 3)));
+  if (partialMatches.length === words.length) return 60;
+  if (partialMatches.length > 0) return 30 * (partialMatches.length / words.length);
+
+  // Character sequence (fuzzy)
+  let qi = 0;
+  for (let i = 0; i < text.length && qi < query.length; i++) {
+    if (text[i] === query[qi]) qi++;
+  }
+  if (qi === query.length) return 20;
+
+  return 0;
+}
+
+function searchProducts(products, q) {
+  if (!q) return products;
+  return products
+    .map(p => {
+      const score = Math.max(
+        fuzzyScore(p.name, q),
+        fuzzyScore(p.nameBn, q),
+        fuzzyScore(p.cat, q)
+      );
+      return { ...p, _score: score };
+    })
+    .filter(p => p._score > 0)
+    .sort((a, b) => b._score - a._score);
+}
+
 // ── STATE ─────────────────────────────────────────────────────
 let cart = JSON.parse(localStorage.getItem('sk_cart') || '[]');
 let activeCategory = 'All';
@@ -739,6 +827,8 @@ function saveCart() { localStorage.setItem('sk_cart', JSON.stringify(cart)); }
 
 // ── INIT ──────────────────────────────────────────────────────
 function init() {
+  document.getElementById('currencySelect').value = activeCurrency;
+  fetchExchangeRates().then(() => renderProducts());
   renderFilterBar();
   renderProducts();
   renderCart();
@@ -759,16 +849,11 @@ function setCategory(cat) {
 
 // ── PRODUCTS ──────────────────────────────────────────────────
 function renderProducts() {
-  const q = document.getElementById('searchInput').value.toLowerCase();
+  const q = document.getElementById('searchInput').value.trim();
   const grid = document.getElementById('productGrid');
   let filtered = products;
   if (activeCategory !== 'All') filtered = filtered.filter(p => p.cat === activeCategory);
-  if (q) filtered = filtered.filter(p =>
-    p.name.toLowerCase().includes(q) ||
-    p.nameBn.includes(q) ||
-    p.cat.toLowerCase().includes(q) ||
-    p.desc.toLowerCase().includes(q)
-  );
+  filtered = searchProducts(filtered, q);
 
   if (!filtered.length) {
     grid.innerHTML = `<div class="no-results"><div class="icon">🔍</div><b>No products found</b><br/>Try a different search or category.</div>`;
@@ -789,7 +874,10 @@ function renderProducts() {
         ${p.desc ? `<div class="product-desc">${p.desc}</div>` : ''}
       </div>
       <div class="product-footer">
-        <div class="price-contact">দাম জানতে অর্ডার করুন</div>
+        <div>${p.price > 0
+          ? `<span class="price">${convertPrice(p.price)}</span>${activeCurrency !== 'BDT' ? `<span style="font-size:0.72rem;color:var(--text-muted);display:block">৳${p.price.toLocaleString()} BDT</span>` : ''}`
+          : `<div class="price-contact">দাম জানতে অর্ডার করুন</div>`
+        }</div>
         <button class="add-btn ${inCart ? 'added' : ''}" onclick="addToCart(${p.id})">
           ${inCart ? '✓ Added' : '+ Add'}
         </button>
@@ -798,6 +886,7 @@ function renderProducts() {
   }).join('');
 }
 function filterProducts() { renderProducts(); }
+
 
 // ── CART LOGIC ────────────────────────────────────────────────
 function addToCart(id) {
