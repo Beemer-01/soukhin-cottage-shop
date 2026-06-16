@@ -325,6 +325,76 @@
     .no-results { text-align: center; padding: 60px 0; color: var(--text-muted); grid-column: 1/-1; }
     .no-results .icon { font-size: 3rem; margin-bottom: 12px; }
 
+    /* ── PRODUCT DETAIL MODAL ── */
+    .pd-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 2500;
+      display: flex; align-items: center; justify-content: center; padding: 16px;
+      opacity: 0; pointer-events: none; transition: opacity 0.25s;
+    }
+    .pd-overlay.open { opacity: 1; pointer-events: all; }
+    .pd-modal {
+      background: var(--surface); border-radius: 16px; width: 100%; max-width: 780px;
+      max-height: 92vh; overflow: hidden; display: flex; flex-direction: column;
+      box-shadow: 0 12px 48px rgba(0,0,0,0.25);
+      transform: scale(0.95); transition: transform 0.25s;
+    }
+    .pd-overlay.open .pd-modal { transform: scale(1); }
+    .pd-inner {
+      display: grid; grid-template-columns: 1fr 1fr; flex: 1; overflow: hidden;
+    }
+    .pd-img-wrap {
+      background: var(--accent-light); position: relative; overflow: hidden;
+      display: flex; align-items: center; justify-content: center; font-size: 6rem;
+      min-height: 320px;
+    }
+    .pd-img-wrap img { width: 100%; height: 100%; object-fit: cover; position: absolute; inset: 0; }
+    .pd-close {
+      position: absolute; top: 12px; right: 12px; background: rgba(0,0,0,0.45);
+      color: #fff; border: none; border-radius: 50%; width: 32px; height: 32px;
+      font-size: 1rem; cursor: pointer; display: flex; align-items: center; justify-content: center;
+      z-index: 1;
+    }
+    .pd-info { padding: 28px; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; }
+    .pd-badge { display: inline-block; padding: 3px 12px; border-radius: 999px; font-size: 0.72rem; font-weight: 700; }
+    .pd-badge.hot { background: var(--danger); color: #fff; }
+    .pd-badge.new { background: var(--success); color: #fff; }
+    .pd-cat { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .pd-name { font-size: 1.4rem; font-weight: 800; color: var(--text); line-height: 1.2; }
+    .pd-name-bn { font-size: 1rem; color: var(--text-muted); }
+    .pd-price-wrap { display: flex; align-items: baseline; gap: 8px; }
+    .pd-price { font-size: 1.5rem; font-weight: 800; color: var(--primary); }
+    .pd-price-sub { font-size: 0.78rem; color: var(--text-muted); }
+    .pd-desc { font-size: 0.88rem; color: var(--text-muted); line-height: 1.65; }
+    .pd-qty-row { display: flex; align-items: center; gap: 12px; }
+    .pd-qty-label { font-size: 0.85rem; font-weight: 600; }
+    .pd-qty-ctrl { display: flex; align-items: center; gap: 10px; }
+    .pd-qty-btn {
+      width: 32px; height: 32px; border-radius: 8px; border: 1.5px solid var(--border);
+      background: #fff; cursor: pointer; font-size: 1.1rem; font-weight: 700;
+      display: flex; align-items: center; justify-content: center; transition: all 0.15s;
+    }
+    .pd-qty-btn:hover { background: var(--primary); color: #fff; border-color: var(--primary); }
+    .pd-qty-val { font-size: 1rem; font-weight: 700; min-width: 28px; text-align: center; }
+    .pd-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
+    .pd-cart-btn {
+      padding: 13px; background: var(--accent-light); color: var(--primary);
+      border: 2px solid var(--primary); border-radius: 10px; font-size: 0.95rem;
+      font-weight: 700; cursor: pointer; transition: all 0.18s;
+    }
+    .pd-cart-btn:hover { background: var(--primary); color: #fff; }
+    .pd-buy-btn {
+      padding: 13px; background: var(--primary); color: #fff;
+      border: none; border-radius: 10px; font-size: 0.95rem;
+      font-weight: 700; cursor: pointer; transition: background 0.18s;
+    }
+    .pd-buy-btn:hover { background: var(--primary-dark); }
+    @media (max-width: 600px) {
+      .pd-inner { grid-template-columns: 1fr; }
+      .pd-img-wrap { min-height: 240px; }
+      .pd-info { padding: 18px; }
+      .pd-name { font-size: 1.1rem; }
+    }
+
     @media (max-width: 600px) {
       /* Header */
       .search-bar { display: none; }
@@ -537,6 +607,46 @@
     <div class="modal-footer">
       <button class="btn-secondary" onclick="closeCheckout()">← Back</button>
       <button class="btn-primary" onclick="placeOrder()">✅ Place Order</button>
+    </div>
+  </div>
+</div>
+
+<!-- PRODUCT DETAIL MODAL -->
+<div class="pd-overlay" id="pdOverlay" onclick="if(event.target===this)closeProduct()">
+  <div class="pd-modal">
+    <div class="pd-inner">
+      <div class="pd-img-wrap" id="pdImgWrap">
+        <button class="pd-close" onclick="closeProduct()">✕</button>
+        <span id="pdEmoji">🏺</span>
+        <img id="pdImg" src="" alt="" style="display:none" onload="this.style.display='block';document.getElementById('pdEmoji').style.display='none'" />
+      </div>
+      <div class="pd-info">
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <span class="pd-cat" id="pdCat"></span>
+          <span class="pd-badge" id="pdBadge" style="display:none"></span>
+        </div>
+        <div>
+          <div class="pd-name" id="pdName"></div>
+          <div class="pd-name-bn" id="pdNameBn"></div>
+        </div>
+        <div class="pd-price-wrap">
+          <span class="pd-price" id="pdPrice"></span>
+          <span class="pd-price-sub" id="pdPriceSub"></span>
+        </div>
+        <div class="pd-desc" id="pdDesc" style="display:none"></div>
+        <div class="pd-qty-row">
+          <span class="pd-qty-label">পরিমাণ / Qty:</span>
+          <div class="pd-qty-ctrl">
+            <button class="pd-qty-btn" onclick="changePdQty(-1)">−</button>
+            <span class="pd-qty-val" id="pdQty">1</span>
+            <button class="pd-qty-btn" onclick="changePdQty(1)">+</button>
+          </div>
+        </div>
+        <div class="pd-actions">
+          <button class="pd-cart-btn" onclick="pdAddToCart()">🛒 Add to Cart</button>
+          <button class="pd-buy-btn" onclick="pdBuyNow()">⚡ Buy Now</button>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -822,16 +932,29 @@ function searchProducts(products, q) {
 // ── STATE ─────────────────────────────────────────────────────
 let cart = JSON.parse(localStorage.getItem('sk_cart') || '[]');
 let activeCategory = 'All';
+let allProducts = [...products]; // starts with hardcoded; dynamic products merged in later
 
 function saveCart() { localStorage.setItem('sk_cart', JSON.stringify(cart)); }
 
 // ── INIT ──────────────────────────────────────────────────────
-function init() {
+async function init() {
   document.getElementById('currencySelect').value = activeCurrency;
   fetchExchangeRates().then(() => renderProducts());
   renderFilterBar();
   renderProducts();
   renderCart();
+  // Fetch dynamic products from Google Sheets and merge
+  try {
+    const res = await fetch('/api/products');
+    if (res.ok) {
+      const data = await res.json();
+      if (data.products && data.products.length) {
+        // Remove any existing dynamic products then add fresh ones
+        allProducts = [...products, ...data.products];
+        renderProducts();
+      }
+    }
+  } catch(e) { /* fail silently — shop still works with hardcoded products */ }
 }
 
 // ── FILTER BAR ────────────────────────────────────────────────
@@ -851,7 +974,7 @@ function setCategory(cat) {
 function renderProducts() {
   const q = document.getElementById('searchInput').value.trim();
   const grid = document.getElementById('productGrid');
-  let filtered = products;
+  let filtered = allProducts;
   if (activeCategory !== 'All') filtered = filtered.filter(p => p.cat === activeCategory);
   filtered = searchProducts(filtered, q);
 
@@ -860,9 +983,10 @@ function renderProducts() {
     return;
   }
   grid.innerHTML = filtered.map(p => {
+    const pid = JSON.stringify(p.id);
     const inCart = cart.find(c => c.id === p.id);
     return `
-    <div class="product-card">
+    <div class="product-card" onclick="openProduct(${pid})" style="cursor:pointer">
       <div class="product-img">
         ${p.img ? `<img src="${p.img}" alt="${p.name}" loading="lazy"/>` : `<span>${p.icon||'🛍'}</span>`}
         ${p.badge ? `<span class="badge ${p.badge}">${p.badge.toUpperCase()}</span>` : ''}
@@ -878,7 +1002,7 @@ function renderProducts() {
           ? `<span class="price">${convertPrice(p.price)}</span>${activeCurrency !== 'BDT' ? `<span style="font-size:0.72rem;color:var(--text-muted);display:block">৳${p.price.toLocaleString()} BDT</span>` : ''}`
           : `<div class="price-contact">দাম জানতে অর্ডার করুন</div>`
         }</div>
-        <button class="add-btn ${inCart ? 'added' : ''}" onclick="addToCart(${p.id})">
+        <button class="add-btn ${inCart ? 'added' : ''}" onclick="event.stopPropagation();addToCart(${pid})">
           ${inCart ? '✓ Added' : '+ Add'}
         </button>
       </div>
@@ -890,7 +1014,7 @@ function filterProducts() { renderProducts(); }
 
 // ── CART LOGIC ────────────────────────────────────────────────
 function addToCart(id) {
-  const p = products.find(p => p.id === id);
+  const p = allProducts.find(p => p.id === id);
   const existing = cart.find(c => c.id === id);
   if (existing) {
     existing.qty++;
@@ -1081,6 +1205,85 @@ function showToast(msg) {
   t.classList.add('show');
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+// ── PRODUCT DETAIL POPUP ──────────────────────────────────────
+let pdProduct = null;
+let pdQty = 1;
+
+const catEmoji = {
+  'Pottery': '🏺', 'Steel Products': '🔩', 'Wood Craft': '🪵',
+  'Jute Goods': '🧺', 'Bamboo Craft': '🎋', 'Miscellaneous': '🛍', 'Mini Aquarium': '🐠'
+};
+
+function openProduct(id) {
+  const p = allProducts.find(x => x.id === id);
+  if (!p) return;
+  pdProduct = p;
+  pdQty = 1;
+  document.getElementById('pdQty').textContent = 1;
+  document.getElementById('pdCat').textContent = p.cat;
+
+  const badge = document.getElementById('pdBadge');
+  if (p.badge) {
+    badge.textContent = p.badge.toUpperCase();
+    badge.className = 'pd-badge ' + p.badge;
+    badge.style.display = 'inline-block';
+  } else { badge.style.display = 'none'; }
+
+  document.getElementById('pdName').textContent = p.name;
+  document.getElementById('pdNameBn').textContent = p.nameBn || '';
+
+  const priceEl = document.getElementById('pdPrice');
+  const priceSubEl = document.getElementById('pdPriceSub');
+  if (p.price > 0) {
+    priceEl.textContent = convertPrice(p.price);
+    priceSubEl.textContent = activeCurrency !== 'BDT' ? `৳${p.price.toLocaleString()} BDT` : '';
+  } else {
+    priceEl.textContent = 'দাম জানতে অর্ডার করুন';
+    priceSubEl.textContent = '';
+  }
+
+  const descEl = document.getElementById('pdDesc');
+  if (p.desc) { descEl.textContent = p.desc; descEl.style.display = 'block'; }
+  else { descEl.style.display = 'none'; }
+
+  const emoji = document.getElementById('pdEmoji');
+  const img = document.getElementById('pdImg');
+  emoji.style.display = 'block';
+  img.style.display = 'none';
+  emoji.textContent = catEmoji[p.cat] || '🛍';
+  if (p.img) { img.src = p.img; }
+
+  document.getElementById('pdOverlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeProduct() {
+  document.getElementById('pdOverlay').classList.remove('open');
+  document.body.style.overflow = '';
+  pdProduct = null;
+}
+
+function changePdQty(delta) {
+  pdQty = Math.max(1, pdQty + delta);
+  document.getElementById('pdQty').textContent = pdQty;
+}
+
+function pdAddToCart() {
+  if (!pdProduct) return;
+  const p = pdProduct;
+  const existing = cart.find(c => c.id === p.id);
+  if (existing) { existing.qty += pdQty; }
+  else { cart.push({ id: p.id, name: p.name, nameBn: p.nameBn, icon: p.icon||'🛍', img: p.img||'', price: p.price, qty: pdQty }); }
+  saveCart(); renderCart(); renderProducts();
+  showToast(`${p.name} (${pdQty}×) added to cart!`);
+  closeProduct();
+}
+
+function pdBuyNow() {
+  pdAddToCart();
+  setTimeout(() => openCheckout(), 150);
 }
 
 // ── START ─────────────────────────────────────────────────────

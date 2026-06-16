@@ -147,13 +147,111 @@
 
     .empty-state { text-align: center; padding: 60px 0; color: var(--muted); }
     .empty-state .icon { font-size: 3rem; margin-bottom: 12px; }
-
     .loading { text-align: center; padding: 48px; color: var(--muted); font-size: 1.1rem; }
+
+    /* TABS */
+    .tab-bar {
+      display: flex; gap: 4px; background: var(--bg);
+      padding: 0 28px; border-bottom: 2px solid var(--border);
+    }
+    .tab-btn {
+      padding: 14px 24px; border: none; background: transparent;
+      font-size: 0.92rem; font-weight: 600; color: var(--muted);
+      cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -2px;
+      transition: all 0.18s;
+    }
+    .tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* PRODUCT MANAGEMENT */
+    .prod-toolbar {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 20px; flex-wrap: wrap; gap: 12px;
+    }
+    .btn-add {
+      background: var(--primary); color: #fff; border: none;
+      padding: 10px 22px; border-radius: 8px; font-size: 0.9rem;
+      font-weight: 700; cursor: pointer; transition: background 0.18s;
+    }
+    .btn-add:hover { background: var(--primary-dark); }
+
+    .prod-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 16px;
+    }
+    .prod-card {
+      background: var(--surface); border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(139,69,19,0.08); overflow: hidden;
+    }
+    .prod-card-img {
+      aspect-ratio: 1; background: var(--accent-light);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 3rem; overflow: hidden;
+    }
+    .prod-card-img img { width: 100%; height: 100%; object-fit: cover; }
+    .prod-card-body { padding: 12px; }
+    .prod-card-name { font-size: 0.9rem; font-weight: 700; margin-bottom: 2px; }
+    .prod-card-cat { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; margin-bottom: 8px; }
+    .prod-card-actions { display: flex; gap: 8px; }
+    .btn-edit {
+      flex: 1; padding: 7px; background: var(--accent-light); color: var(--primary);
+      border: 1.5px solid var(--border); border-radius: 7px; font-size: 0.78rem;
+      font-weight: 600; cursor: pointer;
+    }
+    .btn-delete {
+      padding: 7px 12px; background: #fde8e8; color: var(--danger);
+      border: 1.5px solid #f5c6c6; border-radius: 7px; font-size: 0.78rem;
+      font-weight: 600; cursor: pointer;
+    }
+
+    /* PRODUCT FORM MODAL */
+    .form-modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.55);
+      z-index: 4000; display: flex; align-items: center; justify-content: center;
+      padding: 24px; opacity: 0; pointer-events: none; transition: opacity 0.2s;
+    }
+    .form-modal-overlay.open { opacity: 1; pointer-events: all; }
+    .form-modal {
+      background: var(--surface); border-radius: 16px; width: 100%; max-width: 540px;
+      max-height: 90vh; overflow-y: auto; box-shadow: 0 8px 40px rgba(0,0,0,0.2);
+      transform: scale(0.95); transition: transform 0.2s;
+    }
+    .form-modal-overlay.open .form-modal { transform: scale(1); }
+    .form-modal-header {
+      padding: 20px 24px; border-bottom: 1px solid var(--border);
+      display: flex; justify-content: space-between; align-items: center;
+      background: var(--primary); border-radius: 16px 16px 0 0;
+    }
+    .form-modal-header h2 { color: #fff; font-size: 1.1rem; }
+    .form-modal-body { padding: 24px; display: flex; flex-direction: column; gap: 14px; }
+    .form-modal-footer { padding: 0 24px 24px; display: flex; gap: 10px; }
+    .fg { display: flex; flex-direction: column; gap: 5px; }
+    .fg label { font-size: 0.82rem; font-weight: 600; color: var(--muted); }
+    .fg input, .fg select, .fg textarea {
+      border: 1.5px solid var(--border); border-radius: 8px;
+      padding: 10px 12px; font-size: 0.9rem; outline: none; font-family: inherit;
+      transition: border-color 0.15s;
+    }
+    .fg input:focus, .fg select:focus, .fg textarea:focus { border-color: var(--primary); }
+    .fg-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+    .img-upload-area {
+      border: 2px dashed var(--border); border-radius: 10px; padding: 20px;
+      text-align: center; cursor: pointer; transition: all 0.2s; background: var(--bg);
+    }
+    .img-upload-area:hover { border-color: var(--primary); background: var(--accent-light); }
+    .img-upload-area.has-img { padding: 0; border-style: solid; border-color: var(--primary); }
+    .img-preview { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 8px; display: block; }
+    .img-upload-icon { font-size: 2rem; margin-bottom: 6px; }
+    .img-upload-text { font-size: 0.82rem; color: var(--muted); }
+    .upload-progress { font-size: 0.82rem; color: var(--primary); margin-top: 6px; }
 
     @media (max-width: 768px) {
       main { padding: 16px 12px; }
       .table-wrap { overflow-x: auto; }
       table { min-width: 700px; }
+      .fg-row { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -176,15 +274,23 @@
   <header>
     <div class="header-left">
       <span>সৌখিন কুটিরশিল্প — Admin</span>
-      <span>Order Management Dashboard</span>
+      <span>Dashboard</span>
     </div>
     <div class="header-right">
-      <button class="btn-refresh" onclick="loadOrders()">↻ Refresh</button>
+      <button class="btn-refresh" onclick="refreshTab()">↻ Refresh</button>
       <button class="btn-logout" onclick="logout()">Logout</button>
     </div>
   </header>
 
+  <div class="tab-bar">
+    <button class="tab-btn active" id="tab-orders" onclick="switchTab('orders')">📦 Orders</button>
+    <button class="tab-btn" id="tab-products" onclick="switchTab('products')">🏺 Products</button>
+  </div>
+
   <main>
+
+    <!-- ORDERS TAB -->
+    <div class="tab-panel active" id="panel-orders">
     <div class="stats-grid" id="statsGrid">
       <div class="stat-card"><div class="stat-icon">📦</div><div class="stat-val" id="statTotal">—</div><div class="stat-label">Total Orders</div></div>
       <div class="stat-card"><div class="stat-icon">🕐</div><div class="stat-val" id="statPending">—</div><div class="stat-label">Pending</div></div>
@@ -231,13 +337,116 @@
         <small>Try a different filter or search term.</small>
       </div>
     </div>
+    </div> <!-- end panel-orders -->
+
+    <!-- PRODUCTS TAB -->
+    <div class="tab-panel" id="panel-products">
+      <div class="prod-toolbar">
+        <div style="font-size:1.1rem;font-weight:700;color:var(--primary)">Product Catalog</div>
+        <button class="btn-add" onclick="openProductForm()">+ Add New Product</button>
+      </div>
+      <div class="loading" id="prodLoading" style="display:none">Loading products…</div>
+      <div class="prod-grid" id="prodGrid"></div>
+      <div class="empty-state" id="prodEmpty" style="display:none">
+        <div class="icon">🏺</div>
+        <b>No products yet</b><br/>
+        <small>Click "Add New Product" to get started.</small>
+      </div>
+    </div>
+
   </main>
+</div>
+
+<!-- PRODUCT FORM MODAL -->
+<div class="form-modal-overlay" id="productFormModal">
+  <div class="form-modal">
+    <div class="form-modal-header">
+      <h2 id="productFormTitle">Add New Product</h2>
+      <button class="close-btn" style="color:#fff;font-size:1.3rem" onclick="closeProductForm()">✕</button>
+    </div>
+    <div class="form-modal-body">
+      <input type="hidden" id="pf_rowIndex"/>
+      <div class="fg">
+        <label>Product Image</label>
+        <div class="img-upload-area" id="imgUploadArea" onclick="document.getElementById('pf_imgFile').click()">
+          <div id="imgUploadPlaceholder">
+            <div class="img-upload-icon">📷</div>
+            <div class="img-upload-text">Click to upload image</div>
+          </div>
+          <img id="imgPreview" class="img-preview" style="display:none"/>
+          <div class="upload-progress" id="uploadProgress"></div>
+        </div>
+        <input type="file" id="pf_imgFile" accept="image/*" style="display:none" onchange="handleImageSelect(this)"/>
+        <input type="text" id="pf_imgUrl" placeholder="Or paste image URL directly" oninput="previewUrl(this.value)" style="margin-top:8px"/>
+      </div>
+      <div class="fg-row">
+        <div class="fg">
+          <label>Product Name (English) *</label>
+          <input type="text" id="pf_name" placeholder="e.g. Clay Water Pot"/>
+        </div>
+        <div class="fg">
+          <label>Product Name (বাংলা)</label>
+          <input type="text" id="pf_nameBn" placeholder="e.g. মাটির জলের পাত্র"/>
+        </div>
+      </div>
+      <div class="fg-row">
+        <div class="fg">
+          <label>Category *</label>
+          <select id="pf_cat">
+            <option value="">Select category</option>
+            <option>Pottery</option>
+            <option>Steel Products</option>
+            <option>Wood Craft</option>
+            <option>Jute Goods</option>
+            <option>Bamboo Craft</option>
+            <option>Miscellaneous</option>
+            <option>Mini Aquarium</option>
+            <option>Copper Craft</option>
+            <option>Cane Craft</option>
+            <option>Handmade Lamps</option>
+            <option>Fountain Craft</option>
+            <option>Ornaments</option>
+            <option>Gift Items</option>
+            <option>Ship Souvenirs</option>
+          </select>
+        </div>
+        <div class="fg">
+          <label>Badge</label>
+          <select id="pf_badge">
+            <option value="">None</option>
+            <option value="new">NEW</option>
+            <option value="hot">HOT</option>
+          </select>
+        </div>
+      </div>
+      <div class="fg">
+        <label>Price (BDT)</label>
+        <input type="number" id="pf_price" placeholder="Leave blank if TBD" min="0"/>
+      </div>
+      <div class="fg">
+        <label>Description</label>
+        <textarea id="pf_desc" rows="3" placeholder="Describe the product — material, size, use case…"></textarea>
+      </div>
+    </div>
+    <div class="form-modal-footer">
+      <button class="btn-secondary" style="flex:1;padding:12px;background:#fff;border:1.5px solid var(--border);border-radius:8px;cursor:pointer;font-weight:600" onclick="closeProductForm()">Cancel</button>
+      <button class="btn-add" style="flex:2;padding:12px;border-radius:8px" id="productFormSaveBtn" onclick="saveProduct()">Save Product</button>
+    </div>
+  </div>
 </div>
 
 <script>
 let adminPassword = localStorage.getItem('sk_admin_pw') || '';
 let allOrders = [];
 let activeFilter = 'All';
+let activeTab = 'orders';
+let dynProducts = [];
+let editingProduct = null;
+let pendingImageUrl = '';
+
+// ── CLOUDINARY CONFIG ─────────────────────────────────────────
+const CLOUDINARY_CLOUD = (window.CLOUDINARY_CLOUD_NAME || '').trim();
+const CLOUDINARY_PRESET = (window.CLOUDINARY_UPLOAD_PRESET || '').trim();
 
 function login() {
   const pw = document.getElementById('passwordInput').value.trim();
@@ -248,6 +457,21 @@ function login() {
 
 // Auto-login if password saved
 if (adminPassword) loadOrders();
+
+// ── TABS ──────────────────────────────────────────────────────
+function switchTab(tab) {
+  activeTab = tab;
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  document.getElementById('panel-' + tab).classList.add('active');
+  if (tab === 'products' && dynProducts.length === 0) loadProducts();
+}
+
+function refreshTab() {
+  if (activeTab === 'orders') loadOrders();
+  else loadProducts();
+}
 
 function logout() {
   adminPassword = '';
@@ -397,6 +621,200 @@ async function updateStatus(rowIndex) {
     btn.textContent = 'Save';
   } finally {
     btn.disabled = false;
+  }
+}
+
+// ── PRODUCTS ──────────────────────────────────────────────────
+async function loadProducts() {
+  document.getElementById('prodLoading').style.display = 'block';
+  document.getElementById('prodGrid').innerHTML = '';
+  document.getElementById('prodEmpty').style.display = 'none';
+
+  try {
+    const res = await fetch('/api/products');
+    const data = await res.json();
+    dynProducts = data.products || [];
+    renderProducts();
+  } catch (err) {
+    alert('Error loading products: ' + err.message);
+  } finally {
+    document.getElementById('prodLoading').style.display = 'none';
+  }
+}
+
+function renderProducts() {
+  const grid = document.getElementById('prodGrid');
+  if (!dynProducts.length) {
+    document.getElementById('prodEmpty').style.display = 'block';
+    grid.innerHTML = '';
+    return;
+  }
+  document.getElementById('prodEmpty').style.display = 'none';
+  grid.innerHTML = dynProducts.map(p => `
+    <div class="prod-card">
+      <div class="prod-card-img">
+        ${p.img ? `<img src="${p.img}" alt="${p.name}" loading="lazy"/>` : '🏺'}
+      </div>
+      <div class="prod-card-body">
+        <div class="prod-card-name">${p.name}</div>
+        <div class="prod-card-cat">${p.cat}${p.price > 0 ? ` · ৳${p.price.toLocaleString()}` : ''}</div>
+        ${p.desc ? `<div style="font-size:0.75rem;color:var(--muted);margin-bottom:8px;line-height:1.4">${p.desc.slice(0,80)}${p.desc.length>80?'…':''}</div>` : ''}
+        <div class="prod-card-actions">
+          <button class="btn-edit" onclick="openProductForm(${JSON.stringify(p).replace(/"/g,'&quot;')})">✏️ Edit</button>
+          <button class="btn-delete" onclick="deleteProduct(${p.rowIndex}, '${p.name.replace(/'/g,"\\'")}')">🗑</button>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function openProductForm(product) {
+  editingProduct = product || null;
+  pendingImageUrl = '';
+
+  document.getElementById('productFormTitle').textContent = product ? 'Edit Product' : 'Add New Product';
+  document.getElementById('pf_rowIndex').value = product?.rowIndex || '';
+  document.getElementById('pf_name').value = product?.name || '';
+  document.getElementById('pf_nameBn').value = product?.nameBn || '';
+  document.getElementById('pf_cat').value = product?.cat || '';
+  document.getElementById('pf_badge').value = product?.badge || '';
+  document.getElementById('pf_price').value = product?.price || '';
+  document.getElementById('pf_desc').value = product?.desc || '';
+  document.getElementById('pf_imgUrl').value = product?.img || '';
+  document.getElementById('uploadProgress').textContent = '';
+
+  const preview = document.getElementById('imgPreview');
+  const placeholder = document.getElementById('imgUploadPlaceholder');
+  const area = document.getElementById('imgUploadArea');
+  if (product?.img) {
+    preview.src = product.img;
+    preview.style.display = 'block';
+    placeholder.style.display = 'none';
+    area.classList.add('has-img');
+    pendingImageUrl = product.img;
+  } else {
+    preview.style.display = 'none';
+    placeholder.style.display = 'block';
+    area.classList.remove('has-img');
+  }
+
+  document.getElementById('productFormModal').classList.add('open');
+}
+
+function closeProductForm() {
+  document.getElementById('productFormModal').classList.remove('open');
+  document.getElementById('pf_imgFile').value = '';
+  editingProduct = null;
+  pendingImageUrl = '';
+}
+
+function previewUrl(url) {
+  const preview = document.getElementById('imgPreview');
+  const placeholder = document.getElementById('imgUploadPlaceholder');
+  const area = document.getElementById('imgUploadArea');
+  if (url) {
+    preview.src = url;
+    preview.style.display = 'block';
+    placeholder.style.display = 'none';
+    area.classList.add('has-img');
+    pendingImageUrl = url;
+  } else {
+    preview.style.display = 'none';
+    placeholder.style.display = 'block';
+    area.classList.remove('has-img');
+    pendingImageUrl = '';
+  }
+}
+
+async function handleImageSelect(input) {
+  const file = input.files[0];
+  if (!file) return;
+
+  // Show local preview immediately
+  const reader = new FileReader();
+  reader.onload = e => previewUrl(e.target.result);
+  reader.readAsDataURL(file);
+
+  if (!CLOUDINARY_CLOUD || !CLOUDINARY_PRESET) {
+    document.getElementById('uploadProgress').textContent = '⚠️ Cloudinary not configured — image URL saved as local preview only.';
+    return;
+  }
+
+  document.getElementById('uploadProgress').textContent = 'Uploading…';
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('upload_preset', CLOUDINARY_PRESET);
+    const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD}/image/upload`, {
+      method: 'POST', body: formData
+    });
+    const data = await res.json();
+    if (data.secure_url) {
+      pendingImageUrl = data.secure_url;
+      document.getElementById('pf_imgUrl').value = data.secure_url;
+      document.getElementById('uploadProgress').textContent = '✅ Uploaded successfully';
+    } else {
+      throw new Error(data.error?.message || 'Upload failed');
+    }
+  } catch (err) {
+    document.getElementById('uploadProgress').textContent = '❌ Upload failed: ' + err.message;
+  }
+}
+
+async function saveProduct() {
+  const name = document.getElementById('pf_name').value.trim();
+  const cat  = document.getElementById('pf_cat').value;
+  if (!name || !cat) { alert('Name and Category are required.'); return; }
+
+  const imgUrl = pendingImageUrl || document.getElementById('pf_imgUrl').value.trim();
+  const payload = {
+    name,
+    nameBn: document.getElementById('pf_nameBn').value.trim(),
+    cat,
+    img: imgUrl,
+    price: parseFloat(document.getElementById('pf_price').value) || 0,
+    badge: document.getElementById('pf_badge').value,
+    desc: document.getElementById('pf_desc').value.trim(),
+  };
+
+  const btn = document.getElementById('productFormSaveBtn');
+  btn.textContent = 'Saving…'; btn.disabled = true;
+
+  try {
+    const isEdit = !!editingProduct;
+    const method = isEdit ? 'PUT' : 'POST';
+    if (isEdit) payload.rowIndex = editingProduct.rowIndex;
+
+    const res = await fetch('/api/admin-product', {
+      method,
+      headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPassword },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+
+    closeProductForm();
+    await loadProducts();
+  } catch (err) {
+    alert('Error: ' + err.message);
+  } finally {
+    btn.textContent = 'Save Product'; btn.disabled = false;
+  }
+}
+
+async function deleteProduct(rowIndex, name) {
+  if (!confirm(`Delete "${name}"? This cannot be undone.`)) return;
+  try {
+    const res = await fetch('/api/admin-product', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPassword },
+      body: JSON.stringify({ rowIndex })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+    await loadProducts();
+  } catch (err) {
+    alert('Error: ' + err.message);
   }
 }
 </script>
