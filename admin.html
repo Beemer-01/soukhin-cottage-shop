@@ -436,7 +436,6 @@
 </div>
 
 <script>
-let adminPassword = localStorage.getItem('sk_admin_pw') || '';
 let allOrders = [];
 let activeFilter = 'All';
 let activeTab = 'orders';
@@ -448,15 +447,91 @@ let pendingImageUrl = '';
 const CLOUDINARY_CLOUD = (window.CLOUDINARY_CLOUD_NAME || '').trim();
 const CLOUDINARY_PRESET = (window.CLOUDINARY_UPLOAD_PRESET || '').trim();
 
-function login() {
-  const pw = document.getElementById('passwordInput').value.trim();
-  if (!pw) return;
-  adminPassword = pw;
-  loadOrders();
+// ── AUTH HELPERS ──────────────────────────────────────────────
+function getAdminPassword() {
+  return (localStorage.getItem('sk_admin_pw') || '').trim();
+}
+function setAdminPassword(pw) {
+  localStorage.setItem('sk_admin_pw', String(pw || '').trim());
+}
+function clearAdminPassword() {
+  localStorage.removeItem('sk_admin_pw');
 }
 
-// Auto-login if password saved
-if (adminPassword) loadOrders();
+// Central fetch wrapper: injects auth header, handles 401/403 globally
+async function adminFetch(url, options = {}) {
+  const pw = getAdminPassword();
+  const headers = { ...(options.headers || {}) };
+  headers['x-admin-password'] = pw;
+  // Only set Content-Type for JSON bodies; let FormData set its own
+  if (options.body && typeof options.body === 'string') {
+    headers['Content-Type'] = 'application/json';
+  }
+  const res = await fetch(url, { ...options, headers });
+  if (res.status === 401 || res.status === 403) {
+    clearAdminPassword();
+    showLoginScreen('Session expired or incorrect password. Please log in again.');
+    throw new Error('Unauthorized');
+  }
+  return res;
+}
+
+function showLoginScreen(errorMsg) {
+  document.getElementById('loginScreen').style.display = 'flex';
+  document.getElementById('dashboard').style.display = 'none';
+  document.getElementById('passwordInput').value = '';
+  if (errorMsg) document.getElementById('loginError').textContent = errorMsg;
+}
+
+async function login() {
+  const pw = document.getElementById('passwordInput').value.trim();
+  if (!pw) return;
+  document.getElementById('loginError').textContent = '';
+  // Verify password against a real API call before saving or showing dashboard
+  try {
+    const res = await fetch('/api/admin-orders', {
+      headers: { 'x-admin-password': pw }
+    });
+    if (res.status === 401 || res.status === 403) {
+      document.getElementById('loginError').textContent = 'Incorrect password.';
+      return;
+    }
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Login check failed');
+    // Password verified — persist and show dashboard
+    setAdminPassword(pw);
+    allOrders = data.orders.reverse();
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('dashboard').style.display = 'block';
+    updateStats();
+    renderTable();
+  } catch (err) {
+    if (err.message !== 'Unauthorized') {
+      document.getElementById('loginError').textContent = 'Error: ' + err.message;
+    }
+  }
+}
+
+// Auto-login if a valid password is already saved
+(async function autoLogin() {
+  if (!getAdminPassword()) return;
+  try {
+    const res = await fetch('/api/admin-orders', {
+      headers: { 'x-admin-password': getAdminPassword() }
+    });
+    if (res.status === 401 || res.status === 403) {
+      clearAdminPassword();
+      return;
+    }
+    const data = await res.json();
+    if (!res.ok) return;
+    allOrders = data.orders.reverse();
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('dashboard').style.display = 'block';
+    updateStats();
+    renderTable();
+  } catch (_) { /* network error — stay on login screen */ }
+})();
 
 // ── TABS ──────────────────────────────────────────────────────
 function switchTab(tab) {
@@ -474,13 +549,9 @@ function refreshTab() {
 }
 
 function logout() {
-  adminPassword = '';
-  localStorage.removeItem('sk_admin_pw');
+  clearAdminPassword();
   allOrders = [];
-  document.getElementById('loginScreen').style.display = 'flex';
-  document.getElementById('dashboard').style.display = 'none';
-  document.getElementById('passwordInput').value = '';
-  document.getElementById('loginError').textContent = '';
+  showLoginScreen('');
 }
 
 async function loadOrders() {
@@ -489,27 +560,14 @@ async function loadOrders() {
   document.getElementById('emptyState').style.display = 'none';
 
   try {
-    const res = await fetch('/api/admin-orders', {
-      headers: { 'x-admin-password': adminPassword }
-    });
-
-    if (res.status === 401) {
-      document.getElementById('loginError').textContent = 'Incorrect password.';
-      adminPassword = '';
-      return;
-    }
-
+    const res = await adminFetch('/api/admin-orders');
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error);
-
-    allOrders = data.orders.reverse(); // newest first
-    localStorage.setItem('sk_admin_pw', adminPassword);
-    document.getElementById('loginScreen').style.display = 'none';
-    document.getElementById('dashboard').style.display = 'block';
+    if (!res.ok) throw new Error(data.error || 'Failed to load orders');
+    allOrders = data.orders.reverse();
     updateStats();
     renderTable();
   } catch (err) {
-    alert('Error loading orders: ' + err.message);
+    if (err.message !== 'Unauthorized') alert('Error loading orders: ' + err.message);
   } finally {
     document.getElementById('tableLoading').style.display = 'none';
   }
@@ -600,13 +658,12 @@ async function updateStatus(rowIndex) {
   btn.disabled = true;
 
   try {
-    const res = await fetch('/api/update-order', {
+    const res = await adminFetch('/api/update-order', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPassword },
       body: JSON.stringify({ rowIndex, status })
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error);
+    if (!res.ok) throw new Error(data.error || 'Update failed');
 
     // Update local state
     const order = allOrders.find(o => o.rowIndex === rowIndex);
@@ -631,12 +688,12 @@ async function loadProducts() {
   document.getElementById('prodEmpty').style.display = 'none';
 
   try {
-    const res = await fetch('/api/products');
+    const res = await adminFetch('/api/products');
     const data = await res.json();
     dynProducts = data.products || [];
     renderProducts();
   } catch (err) {
-    alert('Error loading products: ' + err.message);
+    if (err.message !== 'Unauthorized') alert('Error loading products: ' + err.message);
   } finally {
     document.getElementById('prodLoading').style.display = 'none';
   }
@@ -785,13 +842,12 @@ async function saveProduct() {
     const method = isEdit ? 'PUT' : 'POST';
     if (isEdit) payload.rowIndex = editingProduct.rowIndex;
 
-    const res = await fetch('/api/admin-product', {
+    const res = await adminFetch('/api/admin-product', {
       method,
-      headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPassword },
       body: JSON.stringify(payload)
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error);
+    if (!res.ok) throw new Error(data.error || 'Save failed');
 
     closeProductForm();
     await loadProducts();
@@ -805,13 +861,12 @@ async function saveProduct() {
 async function deleteProduct(rowIndex, name) {
   if (!confirm(`Delete "${name}"? This cannot be undone.`)) return;
   try {
-    const res = await fetch('/api/admin-product', {
+    const res = await adminFetch('/api/admin-product', {
       method: 'DELETE',
-      headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPassword },
       body: JSON.stringify({ rowIndex })
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error);
+    if (!res.ok) throw new Error(data.error || 'Delete failed');
     await loadProducts();
   } catch (err) {
     alert('Error: ' + err.message);
