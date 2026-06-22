@@ -436,447 +436,249 @@
 </div>
 
 <script>
-let allOrders = [];
-let activeFilter = 'All';
-let activeTab = 'orders';
-let dynProducts = [];
-let editingProduct = null;
-let pendingImageUrl = '';
-
-// ── CLOUDINARY CONFIG ─────────────────────────────────────────
-const CLOUDINARY_CLOUD = (window.CLOUDINARY_CLOUD_NAME || '').trim();
+function esc(v) {
+  return String(v == null ? '' : v)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+const CLOUDINARY_CLOUD  = (window.CLOUDINARY_CLOUD_NAME    || '').trim();
 const CLOUDINARY_PRESET = (window.CLOUDINARY_UPLOAD_PRESET || '').trim();
-
-// ── AUTH HELPERS ──────────────────────────────────────────────
-function getAdminPassword() {
-  return (localStorage.getItem('sk_admin_pw') || '').trim();
-}
-function setAdminPassword(pw) {
-  localStorage.setItem('sk_admin_pw', String(pw || '').trim());
-}
-function clearAdminPassword() {
-  localStorage.removeItem('sk_admin_pw');
-}
-
-// Central fetch wrapper: injects auth header, handles 401/403 globally
-async function adminFetch(url, options = {}) {
-  const pw = getAdminPassword();
-  const headers = { ...(options.headers || {}) };
-  headers['x-admin-password'] = pw;
-  // Only set Content-Type for JSON bodies; let FormData set its own
-  if (options.body && typeof options.body === 'string') {
-    headers['Content-Type'] = 'application/json';
-  }
-  const res = await fetch(url, { ...options, headers });
-  if (res.status === 401 || res.status === 403) {
-    clearAdminPassword();
-    showLoginScreen('Session expired or incorrect password. Please log in again.');
-    throw new Error('Unauthorized');
-  }
-  return res;
-}
-
-function showLoginScreen(errorMsg) {
+let allOrders = [], activeFilter = 'All', activeTab = 'orders', dynProducts = [], editingProduct = null, pendingImageUrl = '';
+const _prodMap = {};
+const getPw   = () => (localStorage.getItem('sk_admin_pw') || '').trim();
+const setPw   = pw => localStorage.setItem('sk_admin_pw', String(pw || '').trim());
+const clearPw = () => localStorage.removeItem('sk_admin_pw');
+function showLogin(msg) {
   document.getElementById('loginScreen').style.display = 'flex';
-  document.getElementById('dashboard').style.display = 'none';
-  document.getElementById('passwordInput').value = '';
-  if (errorMsg) document.getElementById('loginError').textContent = errorMsg;
+  document.getElementById('dashboard').style.display   = 'none';
+  document.getElementById('passwordInput').value        = '';
+  document.getElementById('loginError').textContent     = msg || '';
 }
-
+async function adminFetch(url, opts = {}) {
+  const headers = Object.assign({}, opts.headers || {}, { 'x-admin-password': getPw() });
+  if (opts.body && typeof opts.body === 'string') headers['Content-Type'] = 'application/json';
+  const res  = await fetch(url, Object.assign({}, opts, { headers }));
+  const data = await res.json().catch(() => ({}));
+  if (res.status === 401 || res.status === 403) { clearPw(); showLogin('Session expired.'); return { ok: false, status: res.status, data: {} }; }
+  return { ok: res.ok, status: res.status, data };
+}
 async function login() {
   const pw = document.getElementById('passwordInput').value.trim();
   if (!pw) return;
   document.getElementById('loginError').textContent = '';
-  // Verify password against a real API call before saving or showing dashboard
-  try {
-    const res = await fetch('/api/admin-orders', {
-      headers: { 'x-admin-password': pw }
-    });
-    if (res.status === 401 || res.status === 403) {
-      document.getElementById('loginError').textContent = 'Incorrect password.';
-      return;
-    }
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Login check failed');
-    // Password verified — persist and show dashboard
-    setAdminPassword(pw);
-    allOrders = data.orders.reverse();
-    document.getElementById('loginScreen').style.display = 'none';
-    document.getElementById('dashboard').style.display = 'block';
-    updateStats();
-    renderTable();
-  } catch (err) {
-    if (err.message !== 'Unauthorized') {
-      document.getElementById('loginError').textContent = 'Error: ' + err.message;
-    }
-  }
+  let res, data;
+  try { res = await fetch('/api/admin-orders', { headers: { 'x-admin-password': pw } }); data = await res.json().catch(() => ({})); }
+  catch(e) { document.getElementById('loginError').textContent = 'Network error.'; return; }
+  if (res.status === 401 || res.status === 403) { document.getElementById('loginError').textContent = 'Incorrect password.'; return; }
+  if (!res.ok) { document.getElementById('loginError').textContent = data.error || 'Login failed.'; return; }
+  setPw(pw); allOrders = (data.orders || []).reverse();
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('dashboard').style.display   = 'block';
+  updateStats(); renderTable();
 }
-
-// Auto-login if a valid password is already saved
 (async function autoLogin() {
-  if (!getAdminPassword()) return;
-  try {
-    const res = await fetch('/api/admin-orders', {
-      headers: { 'x-admin-password': getAdminPassword() }
-    });
-    if (res.status === 401 || res.status === 403) {
-      clearAdminPassword();
-      return;
-    }
-    const data = await res.json();
-    if (!res.ok) return;
-    allOrders = data.orders.reverse();
-    document.getElementById('loginScreen').style.display = 'none';
-    document.getElementById('dashboard').style.display = 'block';
-    updateStats();
-    renderTable();
-  } catch (_) { /* network error — stay on login screen */ }
+  if (!getPw()) return;
+  let res, data;
+  try { res = await fetch('/api/admin-orders', { headers: { 'x-admin-password': getPw() } }); data = await res.json().catch(() => ({})); }
+  catch(e) { return; }
+  if (!res.ok) { clearPw(); return; }
+  allOrders = (data.orders || []).reverse();
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('dashboard').style.display   = 'block';
+  updateStats(); renderTable();
 })();
-
-// ── TABS ──────────────────────────────────────────────────────
+function logout() { clearPw(); allOrders = []; showLogin(); }
 function switchTab(tab) {
   activeTab = tab;
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b  => b.classList.remove('active'));
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-  document.getElementById('tab-' + tab).classList.add('active');
+  document.getElementById('tab-'   + tab).classList.add('active');
   document.getElementById('panel-' + tab).classList.add('active');
-  if (tab === 'products' && dynProducts.length === 0) loadProducts();
+  if (tab === 'products' && !dynProducts.length) loadProducts();
 }
-
-function refreshTab() {
-  if (activeTab === 'orders') loadOrders();
-  else loadProducts();
-}
-
-function logout() {
-  clearAdminPassword();
-  allOrders = [];
-  showLoginScreen('');
-}
-
+function refreshTab() { activeTab === 'orders' ? loadOrders() : loadProducts(); }
 async function loadOrders() {
   document.getElementById('tableLoading').style.display = 'block';
-  document.getElementById('ordersTable').style.display = 'none';
-  document.getElementById('emptyState').style.display = 'none';
-
-  try {
-    const res = await adminFetch('/api/admin-orders');
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Failed to load orders');
-    allOrders = data.orders.reverse();
-    updateStats();
-    renderTable();
-  } catch (err) {
-    if (err.message !== 'Unauthorized') alert('Error loading orders: ' + err.message);
-  } finally {
-    document.getElementById('tableLoading').style.display = 'none';
-  }
+  document.getElementById('ordersTable').style.display  = 'none';
+  document.getElementById('emptyState').style.display   = 'none';
+  const { ok, data } = await adminFetch('/api/admin-orders');
+  document.getElementById('tableLoading').style.display = 'none';
+  if (!ok) { if (data.error) alert('Error: ' + data.error); return; }
+  allOrders = (data.orders || []).reverse();
+  updateStats(); renderTable();
 }
-
 function updateStats() {
-  const count = s => allOrders.filter(o => o.status === s).length;
-  document.getElementById('statTotal').textContent = allOrders.length;
-  document.getElementById('statPending').textContent = count('Pending');
-  document.getElementById('statConfirmed').textContent = count('Confirmed');
-  document.getElementById('statShipped').textContent = count('Shipped');
-  document.getElementById('statDelivered').textContent = count('Delivered');
-  document.getElementById('statCancelled').textContent = count('Cancelled');
+  const n = s => allOrders.filter(o => o.status === s).length;
+  document.getElementById('statTotal').textContent     = allOrders.length;
+  document.getElementById('statPending').textContent   = n('Pending');
+  document.getElementById('statConfirmed').textContent = n('Confirmed');
+  document.getElementById('statShipped').textContent   = n('Shipped');
+  document.getElementById('statDelivered').textContent = n('Delivered');
+  document.getElementById('statCancelled').textContent = n('Cancelled');
 }
-
 function setFilter(filter, btn) {
   activeFilter = filter;
   document.querySelectorAll('.fchip').forEach(c => c.classList.remove('active'));
-  btn.classList.add('active');
-  renderTable();
+  btn.classList.add('active'); renderTable();
 }
-
 function paymentLabel(p) {
   if (p === 'bkash_personal') return '<span class="payment-badge pay-bkash">bKash Personal</span>';
   if (p === 'bkash_payment')  return '<span class="payment-badge pay-bkash">bKash Payment</span>';
   return '<span class="payment-badge pay-cod">Cash on Delivery</span>';
 }
-
 function renderTable() {
   const q = document.getElementById('searchInput').value.toLowerCase();
-  let filtered = allOrders;
-  if (activeFilter !== 'All') filtered = filtered.filter(o => o.status === activeFilter);
-  if (q) filtered = filtered.filter(o =>
-    o.name.toLowerCase().includes(q) ||
-    o.phone.includes(q) ||
-    o.orderId.toLowerCase().includes(q) ||
-    o.items.toLowerCase().includes(q)
-  );
-
-  const tbody = document.getElementById('ordersBody');
+  let rows = allOrders;
+  if (activeFilter !== 'All') rows = rows.filter(o => o.status === activeFilter);
+  if (q) rows = rows.filter(o => o.name.toLowerCase().includes(q)||o.phone.includes(q)||o.orderId.toLowerCase().includes(q)||o.items.toLowerCase().includes(q));
   document.getElementById('tableLoading').style.display = 'none';
-
-  if (!filtered.length) {
-    document.getElementById('ordersTable').style.display = 'none';
-    document.getElementById('emptyState').style.display = 'block';
-    return;
-  }
-
-  document.getElementById('emptyState').style.display = 'none';
+  if (!rows.length) { document.getElementById('ordersTable').style.display='none'; document.getElementById('emptyState').style.display='block'; return; }
+  document.getElementById('emptyState').style.display  = 'none';
   document.getElementById('ordersTable').style.display = 'table';
-
-  const statuses = ['Pending','Confirmed','Processing','Shipped','Delivered','Cancelled'];
-
-  tbody.innerHTML = filtered.map(o => `
-    <tr>
-      <td style="white-space:nowrap;font-size:0.78rem;color:var(--muted)">${o.timestamp}</td>
-      <td><div class="order-id">#${o.orderId}</div></td>
-      <td><div class="customer-name">${o.name}</div>${o.email !== '-' ? `<div style="font-size:0.75rem;color:var(--muted)">${o.email}</div>` : ''}</td>
-      <td><a class="phone-link" href="tel:${o.phone}">${o.phone}</a></td>
-      <td style="font-size:0.8rem;color:var(--muted)">${o.address}<br/>${o.city}</td>
-      <td class="items-cell">${o.items.split(' | ').join('<br/>')}</td>
-      <td>${paymentLabel(o.payment)}</td>
-      <td style="font-size:0.78rem;color:var(--muted);max-width:120px">${o.note !== '-' ? o.note : ''}</td>
-      <td>
-        <div class="status-wrap">
-          <div class="status-dot dot-${o.status}"></div>
-          <select class="status-select" id="sel-${o.rowIndex}" onchange="markChanged(${o.rowIndex})">
-            ${statuses.map(s => `<option value="${s}" ${s === o.status ? 'selected' : ''}>${s}</option>`).join('')}
-          </select>
-        </div>
-        <button class="save-btn" id="save-${o.rowIndex}" onclick="updateStatus(${o.rowIndex})" style="margin-top:6px">Save</button>
-      </td>
-    </tr>
-  `).join('');
+  const STATUSES = ['Pending','Confirmed','Processing','Shipped','Delivered','Cancelled'];
+  const tbody = document.getElementById('ordersBody');
+  tbody.innerHTML = '';
+  rows.forEach(o => {
+    const tr   = document.createElement('tr');
+    const opts = STATUSES.map(s => `<option value="${s}"${s === o.status ? ' selected' : ''}>${s}</option>`).join('');
+    tr.innerHTML =
+      `<td style="white-space:nowrap;font-size:0.78rem;color:var(--muted)">${esc(o.timestamp)}</td>` +
+      `<td><div class="order-id">#${esc(o.orderId)}</div></td>` +
+      `<td><div class="customer-name">${esc(o.name)}</div>${o.email && o.email !== '-' ? `<div style="font-size:0.75rem;color:var(--muted)">${esc(o.email)}</div>` : ''}</td>` +
+      `<td><a class="phone-link" href="tel:${esc(o.phone)}">${esc(o.phone)}</a></td>` +
+      `<td style="font-size:0.8rem;color:var(--muted)">${esc(o.address)}<br/>${esc(o.city)}</td>` +
+      `<td class="items-cell">${esc(o.items).replace(/ \| /g,'<br/>')}</td>` +
+      `<td>${paymentLabel(o.payment)}</td>` +
+      `<td style="font-size:0.78rem;color:var(--muted);max-width:120px">${o.note && o.note !== '-' ? esc(o.note) : ''}</td>` +
+      `<td><div class="status-wrap"><div class="status-dot dot-${esc(o.status)}"></div>` +
+      `<select class="status-select" id="sel-${o.rowIndex}">${opts}</select></div>` +
+      `<button class="save-btn" id="save-${o.rowIndex}" style="margin-top:6px">Save</button></td>`;
+    const ri = o.rowIndex;
+    tr.querySelector('select').onchange = () => markChanged(ri);
+    tr.querySelector('button').onclick  = () => updateStatus(ri);
+    tbody.appendChild(tr);
+  });
 }
-
-function markChanged(rowIndex) {
-  const btn = document.getElementById(`save-${rowIndex}`);
-  if (btn) { btn.textContent = 'Save'; btn.classList.remove('saved'); btn.style.background = ''; }
+function markChanged(ri) {
+  const btn = document.getElementById(`save-${ri}`);
+  if (btn) { btn.textContent='Save'; btn.classList.remove('saved'); btn.style.background=''; }
 }
-
-async function updateStatus(rowIndex) {
-  const select = document.getElementById(`sel-${rowIndex}`);
-  const btn = document.getElementById(`save-${rowIndex}`);
-  const status = select.value;
-
-  btn.textContent = '…';
-  btn.disabled = true;
-
-  try {
-    const res = await adminFetch('/api/update-order', {
-      method: 'POST',
-      body: JSON.stringify({ rowIndex, status })
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Update failed');
-
-    // Update local state
-    const order = allOrders.find(o => o.rowIndex === rowIndex);
-    if (order) order.status = status;
-    updateStats();
-
-    btn.textContent = 'Saved ✓';
-    btn.classList.add('saved');
-    btn.style.background = 'var(--success)';
-  } catch (err) {
-    alert('Error: ' + err.message);
-    btn.textContent = 'Save';
-  } finally {
-    btn.disabled = false;
-  }
+async function updateStatus(ri) {
+  const select = document.getElementById(`sel-${ri}`);
+  const btn    = document.getElementById(`save-${ri}`);
+  btn.textContent = '...'; btn.disabled = true;
+  const { ok, data } = await adminFetch('/api/update-order', { method:'POST', body: JSON.stringify({ rowIndex:ri, status:select.value }) });
+  btn.disabled = false;
+  if (!ok) { alert('Error: '+(data.error||'Update failed')); btn.textContent='Save'; return; }
+  const order = allOrders.find(o => o.rowIndex === ri);
+  if (order) order.status = select.value;
+  updateStats();
+  btn.textContent = 'Saved'; btn.classList.add('saved'); btn.style.background = 'var(--success)';
 }
-
-// ── PRODUCTS ──────────────────────────────────────────────────
 async function loadProducts() {
   document.getElementById('prodLoading').style.display = 'block';
-  document.getElementById('prodGrid').innerHTML = '';
-  document.getElementById('prodEmpty').style.display = 'none';
-
-  try {
-    const res = await adminFetch('/api/products');
-    const data = await res.json();
-    dynProducts = data.products || [];
-    renderProducts();
-  } catch (err) {
-    if (err.message !== 'Unauthorized') alert('Error loading products: ' + err.message);
-  } finally {
-    document.getElementById('prodLoading').style.display = 'none';
-  }
+  document.getElementById('prodGrid').innerHTML        = '';
+  document.getElementById('prodEmpty').style.display   = 'none';
+  let data = {};
+  try { const r = await fetch('/api/products'); data = await r.json(); } catch(e) {}
+  document.getElementById('prodLoading').style.display = 'none';
+  dynProducts = data.products || [];
+  renderDynProducts();
 }
-
-function renderProducts() {
+function renderDynProducts() {
   const grid = document.getElementById('prodGrid');
-  if (!dynProducts.length) {
-    document.getElementById('prodEmpty').style.display = 'block';
-    grid.innerHTML = '';
-    return;
-  }
+  if (!dynProducts.length) { document.getElementById('prodEmpty').style.display='block'; grid.innerHTML=''; return; }
   document.getElementById('prodEmpty').style.display = 'none';
-  // Store products in a map so onclick handlers can reference by rowIndex safely
-  window._dynProductMap = {};
-  dynProducts.forEach(p => { window._dynProductMap[p.rowIndex] = p; });
-
-  grid.innerHTML = dynProducts.map(p => `
-    <div class="prod-card">
-      <div class="prod-card-img">
-        ${p.img ? `<img src="${p.img}" alt="" loading="lazy"/>` : '🏺'}
-      </div>
-      <div class="prod-card-body">
-        <div class="prod-card-name">${p.name}</div>
-        <div class="prod-card-cat">${p.cat}${p.price > 0 ? ` · ৳${p.price.toLocaleString()}` : ''}</div>
-        ${p.desc ? `<div style="font-size:0.75rem;color:var(--muted);margin-bottom:8px;line-height:1.4">${p.desc.slice(0,80)}${p.desc.length>80?'…':''}</div>` : ''}
-        <div class="prod-card-actions">
-          <button class="btn-edit" onclick="openProductForm(window._dynProductMap[${p.rowIndex}])">✏️ Edit</button>
-          <button class="btn-delete" onclick="deleteProduct(${p.rowIndex})">🗑</button>
-        </div>
-      </div>
-    </div>
-  `).join('');
+  dynProducts.forEach(p => { _prodMap[p.rowIndex] = p; });
+  const frag = document.createDocumentFragment();
+  dynProducts.forEach(p => {
+    const card = document.createElement('div');
+    card.className = 'prod-card';
+    const sd = p.desc ? esc(p.desc.slice(0,80))+(p.desc.length>80?'...':'') : '';
+    const imgHtml = p.img ? `<img src="${esc(p.img)}" alt="" loading="lazy"/>` : '&#x1F3FA;';
+    card.innerHTML =
+      `<div class="prod-card-img">${imgHtml}</div>` +
+      `<div class="prod-card-body">` +
+      `<div class="prod-card-name">${esc(p.name)}</div>` +
+      `<div class="prod-card-cat">${esc(p.cat)}${p.price > 0 ? ' · ৳' + p.price.toLocaleString() : ''}</div>` +
+      (sd ? `<div style="font-size:0.75rem;color:var(--muted);margin-bottom:8px;line-height:1.4">${sd}</div>` : '') +
+      `<div class="prod-card-actions"><button class="btn-edit">✏️ Edit</button><button class="btn-delete">&#x1F5D1;</button></div>` +
+      `</div>`;
+    const ri = p.rowIndex;
+    card.querySelector('.btn-edit').onclick   = () => openProductForm(_prodMap[ri]);
+    card.querySelector('.btn-delete').onclick = () => deleteProduct(ri);
+    frag.appendChild(card);
+  });
+  grid.innerHTML = ''; grid.appendChild(frag);
 }
-
 function openProductForm(product) {
-  editingProduct = product || null;
-  pendingImageUrl = '';
-
+  editingProduct = product || null; pendingImageUrl = '';
   document.getElementById('productFormTitle').textContent = product ? 'Edit Product' : 'Add New Product';
-  document.getElementById('pf_rowIndex').value = product?.rowIndex || '';
-  document.getElementById('pf_name').value = product?.name || '';
-  document.getElementById('pf_nameBn').value = product?.nameBn || '';
-  document.getElementById('pf_cat').value = product?.cat || '';
-  document.getElementById('pf_badge').value = product?.badge || '';
-  document.getElementById('pf_price').value = product?.price || '';
-  document.getElementById('pf_desc').value = product?.desc || '';
-  document.getElementById('pf_imgUrl').value = product?.img || '';
+  document.getElementById('pf_rowIndex').value = (product && product.rowIndex) ? product.rowIndex : '';
+  document.getElementById('pf_name').value     = (product && product.name)     ? product.name     : '';
+  document.getElementById('pf_nameBn').value   = (product && product.nameBn)   ? product.nameBn   : '';
+  document.getElementById('pf_cat').value      = (product && product.cat)      ? product.cat      : '';
+  document.getElementById('pf_badge').value    = (product && product.badge)    ? product.badge    : '';
+  document.getElementById('pf_price').value    = (product && product.price)    ? product.price    : '';
+  document.getElementById('pf_desc').value     = (product && product.desc)     ? product.desc     : '';
+  document.getElementById('pf_imgUrl').value   = (product && product.img)      ? product.img      : '';
   document.getElementById('uploadProgress').textContent = '';
-
-  const preview = document.getElementById('imgPreview');
-  const placeholder = document.getElementById('imgUploadPlaceholder');
-  const area = document.getElementById('imgUploadArea');
-  if (product?.img) {
-    preview.src = product.img;
-    preview.style.display = 'block';
-    placeholder.style.display = 'none';
-    area.classList.add('has-img');
-    pendingImageUrl = product.img;
-  } else {
-    preview.style.display = 'none';
-    placeholder.style.display = 'block';
-    area.classList.remove('has-img');
-  }
-
+  const preview=document.getElementById('imgPreview'), placeholder=document.getElementById('imgUploadPlaceholder'), area=document.getElementById('imgUploadArea');
+  if (product && product.img) { preview.src=product.img; preview.style.display='block'; placeholder.style.display='none'; area.classList.add('has-img'); pendingImageUrl=product.img; }
+  else { preview.style.display='none'; placeholder.style.display='block'; area.classList.remove('has-img'); }
   document.getElementById('productFormModal').classList.add('open');
 }
-
 function closeProductForm() {
   document.getElementById('productFormModal').classList.remove('open');
   document.getElementById('pf_imgFile').value = '';
-  editingProduct = null;
-  pendingImageUrl = '';
+  editingProduct = null; pendingImageUrl = '';
 }
-
 function previewUrl(url) {
-  const preview = document.getElementById('imgPreview');
-  const placeholder = document.getElementById('imgUploadPlaceholder');
-  const area = document.getElementById('imgUploadArea');
-  if (url) {
-    preview.src = url;
-    preview.style.display = 'block';
-    placeholder.style.display = 'none';
-    area.classList.add('has-img');
-    pendingImageUrl = url;
-  } else {
-    preview.style.display = 'none';
-    placeholder.style.display = 'block';
-    area.classList.remove('has-img');
-    pendingImageUrl = '';
-  }
+  const preview=document.getElementById('imgPreview'), placeholder=document.getElementById('imgUploadPlaceholder'), area=document.getElementById('imgUploadArea');
+  if (url) { preview.src=url; preview.style.display='block'; placeholder.style.display='none'; area.classList.add('has-img'); pendingImageUrl=url; }
+  else { preview.style.display='none'; placeholder.style.display='block'; area.classList.remove('has-img'); pendingImageUrl=''; }
 }
-
 async function handleImageSelect(input) {
-  const file = input.files[0];
-  if (!file) return;
-
-  // Show local preview immediately
+  const file = input.files[0]; if (!file) return;
   const reader = new FileReader();
   reader.onload = e => previewUrl(e.target.result);
   reader.readAsDataURL(file);
-
-  if (!CLOUDINARY_CLOUD || !CLOUDINARY_PRESET) {
-    document.getElementById('uploadProgress').textContent = '⚠️ Cloudinary not configured — image URL saved as local preview only.';
-    return;
-  }
-
-  document.getElementById('uploadProgress').textContent = 'Uploading…';
+  if (!CLOUDINARY_CLOUD || !CLOUDINARY_PRESET) { document.getElementById('uploadProgress').textContent='Cloudinary not configured.'; return; }
+  document.getElementById('uploadProgress').textContent = 'Uploading...';
   try {
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('upload_preset', CLOUDINARY_PRESET);
-    const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD}/image/upload`, {
-      method: 'POST', body: formData
-    });
-    const data = await res.json();
-    if (data.secure_url) {
-      pendingImageUrl = data.secure_url;
-      document.getElementById('pf_imgUrl').value = data.secure_url;
-      document.getElementById('uploadProgress').textContent = '✅ Uploaded successfully';
-    } else {
-      throw new Error(data.error?.message || 'Upload failed');
-    }
-  } catch (err) {
-    document.getElementById('uploadProgress').textContent = '❌ Upload failed: ' + err.message;
-  }
+    const fd = new FormData(); fd.append('file',file); fd.append('upload_preset',CLOUDINARY_PRESET);
+    const ur = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD}/image/upload`, { method:'POST', body:fd });
+    const ud = await ur.json();
+    if (ud.secure_url) { pendingImageUrl=ud.secure_url; document.getElementById('pf_imgUrl').value=ud.secure_url; document.getElementById('uploadProgress').textContent='Uploaded successfully'; }
+    else { throw new Error((ud.error && ud.error.message) ? ud.error.message : 'Upload failed'); }
+  } catch(e) { document.getElementById('uploadProgress').textContent='Upload failed: '+e.message; }
 }
-
 async function saveProduct() {
-  const name = document.getElementById('pf_name').value.trim();
-  const cat  = document.getElementById('pf_cat').value;
-  if (!name || !cat) { alert('Name and Category are required.'); return; }
-
-  const imgUrl = pendingImageUrl || document.getElementById('pf_imgUrl').value.trim();
-  const payload = {
-    name,
-    nameBn: document.getElementById('pf_nameBn').value.trim(),
-    cat,
-    img: imgUrl,
-    price: parseFloat(document.getElementById('pf_price').value) || 0,
+  const name  = document.getElementById('pf_name').value.trim();
+  const cat   = document.getElementById('pf_cat').value;
+  const price = parseFloat(document.getElementById('pf_price').value);
+  if (!name) { alert('Product name is required.'); return; }
+  if (!cat)  { alert('Category is required.');      return; }
+  const payload = { name, nameBn:document.getElementById('pf_nameBn').value.trim(), cat,
+    img: pendingImageUrl || document.getElementById('pf_imgUrl').value.trim(),
+    price: (Number.isFinite(price) && price >= 0) ? price : 0,
     badge: document.getElementById('pf_badge').value,
-    desc: document.getElementById('pf_desc').value.trim(),
-  };
-
+    desc: document.getElementById('pf_desc').value.trim() };
   const btn = document.getElementById('productFormSaveBtn');
-  btn.textContent = 'Saving…'; btn.disabled = true;
-
-  try {
-    const isEdit = !!editingProduct;
-    const method = isEdit ? 'PUT' : 'POST';
-    if (isEdit) payload.rowIndex = editingProduct.rowIndex;
-
-    const res = await adminFetch('/api/admin-product', {
-      method,
-      body: JSON.stringify(payload)
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Save failed');
-
-    closeProductForm();
-    await loadProducts();
-  } catch (err) {
-    alert('Error: ' + err.message);
-  } finally {
-    btn.textContent = 'Save Product'; btn.disabled = false;
-  }
+  btn.textContent = 'Saving...'; btn.disabled = true;
+  const method = editingProduct ? 'PUT' : 'POST';
+  if (editingProduct) payload.rowIndex = editingProduct.rowIndex;
+  const { ok, data } = await adminFetch('/api/admin-product', { method, body: JSON.stringify(payload) });
+  btn.textContent = 'Save Product'; btn.disabled = false;
+  if (!ok) { alert('Error: '+(data.error||'Save failed')); return; }
+  closeProductForm(); await loadProducts();
 }
-
 async function deleteProduct(rowIndex) {
-  const p = (window._dynProductMap || {})[rowIndex];
-  const label = p ? p.name : `row ${rowIndex}`;
-  if (!confirm(`Delete "${label}"?\n\nThis will hide the product from the shop.`)) return;
-  try {
-    const res = await adminFetch('/api/admin-product', {
-      method: 'DELETE',
-      body: JSON.stringify({ rowIndex })
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Delete failed');
-    await loadProducts();
-  } catch (err) {
-    alert('Error: ' + err.message);
-  }
+  const p = _prodMap[rowIndex], label = p ? p.name : 'row '+rowIndex;
+  if (!confirm(`Delete "${label}"?\n\nThis will hide it from the shop.`)) return;
+  const { ok, data } = await adminFetch('/api/admin-product', { method:'DELETE', body: JSON.stringify({ rowIndex }) });
+  if (!ok) { alert('Error: '+(data.error||'Delete failed')); return; }
+  await loadProducts();
 }
 </script>
 </body>
