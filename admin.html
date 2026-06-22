@@ -707,18 +707,22 @@ function renderProducts() {
     return;
   }
   document.getElementById('prodEmpty').style.display = 'none';
+  // Store products in a map so onclick handlers can reference by rowIndex safely
+  window._dynProductMap = {};
+  dynProducts.forEach(p => { window._dynProductMap[p.rowIndex] = p; });
+
   grid.innerHTML = dynProducts.map(p => `
     <div class="prod-card">
       <div class="prod-card-img">
-        ${p.img ? `<img src="${p.img}" alt="${p.name}" loading="lazy"/>` : '🏺'}
+        ${p.img ? `<img src="${p.img}" alt="" loading="lazy"/>` : '🏺'}
       </div>
       <div class="prod-card-body">
         <div class="prod-card-name">${p.name}</div>
         <div class="prod-card-cat">${p.cat}${p.price > 0 ? ` · ৳${p.price.toLocaleString()}` : ''}</div>
         ${p.desc ? `<div style="font-size:0.75rem;color:var(--muted);margin-bottom:8px;line-height:1.4">${p.desc.slice(0,80)}${p.desc.length>80?'…':''}</div>` : ''}
         <div class="prod-card-actions">
-          <button class="btn-edit" onclick="openProductForm(${JSON.stringify(p).replace(/"/g,'&quot;')})">✏️ Edit</button>
-          <button class="btn-delete" onclick="deleteProduct(${p.rowIndex}, '${p.name.replace(/'/g,"\\'")}')">🗑</button>
+          <button class="btn-edit" onclick="openProductForm(window._dynProductMap[${p.rowIndex}])">✏️ Edit</button>
+          <button class="btn-delete" onclick="deleteProduct(${p.rowIndex})">🗑</button>
         </div>
       </div>
     </div>
@@ -858,8 +862,10 @@ async function saveProduct() {
   }
 }
 
-async function deleteProduct(rowIndex, name) {
-  if (!confirm(`Delete "${name}"? This cannot be undone.`)) return;
+async function deleteProduct(rowIndex) {
+  const p = (window._dynProductMap || {})[rowIndex];
+  const label = p ? p.name : `row ${rowIndex}`;
+  if (!confirm(`Delete "${label}"?\n\nThis will hide the product from the shop.`)) return;
   try {
     const res = await adminFetch('/api/admin-product', {
       method: 'DELETE',

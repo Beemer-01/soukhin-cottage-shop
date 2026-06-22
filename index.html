@@ -864,8 +864,11 @@ let activeCurrency = localStorage.getItem('sk_currency') || 'BDT';
 async function fetchExchangeRates() {
   try {
     const res = await fetch('https://api.frankfurter.app/latest?from=BDT&to=USD,CAD,GBP,EUR');
+    if (!res.ok) return;
     const data = await res.json();
-    exchangeRates = { BDT: 1, ...data.rates };
+    if (data && data.rates && typeof data.rates === 'object') {
+      exchangeRates = { BDT: 1, ...data.rates };
+    }
   } catch (e) {
     // silently use fallback rates
   }
@@ -930,11 +933,17 @@ function searchProducts(products, q) {
 }
 
 // ── STATE ─────────────────────────────────────────────────────
-let cart = JSON.parse(localStorage.getItem('sk_cart') || '[]');
+let cart = (() => {
+  try { return JSON.parse(localStorage.getItem('sk_cart') || '[]'); }
+  catch (e) { localStorage.removeItem('sk_cart'); return []; }
+})();
 let activeCategory = 'All';
 let allProducts = [...products]; // starts with hardcoded; dynamic products merged in later
 
-function saveCart() { localStorage.setItem('sk_cart', JSON.stringify(cart)); }
+function saveCart() {
+  try { localStorage.setItem('sk_cart', JSON.stringify(cart)); }
+  catch (e) { console.warn('Could not save cart:', e); }
+}
 
 // ── INIT ──────────────────────────────────────────────────────
 async function init() {
@@ -1024,7 +1033,7 @@ function addToCart(id) {
   saveCart();
   renderCart();
   renderProducts();
-  showToast(`${p.icon} ${p.name} added to cart!`);
+  showToast(`${p.name} added to cart!`);
 }
 function removeFromCart(id) {
   cart = cart.filter(c => c.id !== id);
@@ -1115,36 +1124,38 @@ async function placeOrder() {
   const note    = document.getElementById('custNote').value.trim();
   const payment = document.querySelector('input[name="payment"]:checked')?.value || 'cod';
 
-  if (!name || !phone || !address || !city) {
-    showToast('⚠️ Please fill in all required fields'); return;
-  }
+  if (!name)    { showToast('⚠️ নাম লিখুন / Please enter your name'); return; }
+  if (!phone)   { showToast('⚠️ ফোন নম্বর লিখুন / Please enter phone'); return; }
+  if (!address) { showToast('⚠️ ঠিকানা লিখুন / Please enter address'); return; }
+  if (!city)    { showToast('⚠️ শহর বেছে নিন / Please select city'); return; }
   if (!/^01[3-9]\d{8}$/.test(phone)) {
-    showToast('⚠️ Please enter a valid BD phone number'); return;
+    showToast('⚠️ সঠিক বাংলাদেশি নম্বর দিন / Enter valid BD phone'); return;
   }
+  if (!cart.length) { showToast('⚠️ কার্ট খালি / Cart is empty'); return; }
 
-  const orderId = 'SK-' + Date.now().toString().slice(-6);
+  const orderId   = 'SK-' + Date.now().toString().slice(-6);
   const timestamp = new Date().toLocaleString('en-BD', { timeZone: 'Asia/Dhaka' });
   const orderItems = cart.map(c => ({ name: c.name, qty: c.qty }));
+  const orderData  = { orderId, timestamp, name, phone, email: email || '-', address, city, note, payment, items: orderItems };
 
   const placeBtn = document.querySelector('.btn-primary[onclick="placeOrder()"]');
   if (placeBtn) { placeBtn.textContent = 'Placing order…'; placeBtn.disabled = true; }
 
-  const orderData = { orderId, timestamp, name, phone, email: email || '-', address, city, note, payment, items: orderItems };
-
+  let apiSuccess = false;
   try {
     const res = await fetch('/api/order', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(orderData)
     });
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.error || 'Server error');
-    }
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Server error');
+    apiSuccess = true;
   } catch (err) {
-    // Still show success even if API fails — order is not lost (show warning)
     console.error('Order API error:', err);
-    showToast('⚠️ Order saved locally — please screenshot this confirmation');
+    // Show a warning inside the success modal but still display the order summary
+    // so the customer has their order ID and can contact the shop
+    apiSuccess = false;
   } finally {
     if (placeBtn) { placeBtn.textContent = '✅ Place Order'; placeBtn.disabled = false; }
   }
@@ -1164,9 +1175,17 @@ async function placeOrder() {
         💵 <strong>Cash on Delivery</strong> — Pay when your order arrives.
        </div>`;
 
+  const apiWarning = apiSuccess ? '' : `
+    <div style="background:#fff3cd;border:1px solid #ffc107;border-radius:8px;padding:10px 14px;margin-top:12px;font-size:0.82rem;color:#5d4037">
+      ⚠️ অর্ডার রেকর্ড করতে সমস্যা হয়েছে। অনুগ্রহ করে এই স্ক্রিনের ছবি তুলুন এবং <strong>01921962964</strong> নম্বরে যোগাযোগ করুন।<br/>
+      <em>There was a problem saving your order. Please screenshot this page and contact us.</em>
+    </div>`;
+
+  const cartSnapshot = [...cart];
+
   document.getElementById('successBody').innerHTML = `
     <div style="text-align:center;padding:8px 0 16px">
-      <div style="font-size:3rem;margin-bottom:8px">🎉</div>
+      <div style="font-size:3rem;margin-bottom:8px">${apiSuccess ? '🎉' : '⚠️'}</div>
       <p style="color:var(--text-muted);font-size:0.9rem">Thank you, <strong>${name}</strong>! We'll confirm via phone within 24 hours.</p>
     </div>
     <div style="background:var(--accent-light);border-radius:10px;padding:14px 16px;margin-bottom:14px">
@@ -1175,22 +1194,21 @@ async function placeOrder() {
     </div>
     <div style="font-size:0.88rem;font-weight:700;margin-bottom:8px;color:var(--text)">Items Ordered</div>
     <div style="background:var(--bg);border-radius:8px;padding:12px 14px;margin-bottom:14px">
-      ${cart.map(c => `<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:0.85rem;border-bottom:1px solid var(--border)"><span>${c.name}</span><span style="font-weight:700">×${c.qty}</span></div>`).join('')}
+      ${cartSnapshot.map(c => `<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:0.85rem;border-bottom:1px solid var(--border)"><span>${c.name}</span><span style="font-weight:700">×${c.qty}</span></div>`).join('')}
     </div>
     <div style="font-size:0.88rem;font-weight:700;margin-bottom:6px;color:var(--text)">Delivery To</div>
     <div style="font-size:0.85rem;color:var(--text-muted);margin-bottom:14px">${address}, ${city}</div>
     ${payInstr}
     ${email ? `<p style="font-size:0.78rem;color:var(--text-muted);margin-top:12px;text-align:center">📧 Confirmation email sent to <strong>${email}</strong></p>` : ''}
+    ${apiWarning}
   `;
 
   closeCheckout();
   document.getElementById('successModal').classList.add('open');
-  const clearedCart = [...cart];
   cart = [];
   saveCart();
   renderCart();
   renderProducts();
-  // Reset form
   ['custName','custPhone','custEmail','custAddress','custNote'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('custCity').value = '';
 }

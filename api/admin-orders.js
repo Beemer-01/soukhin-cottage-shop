@@ -1,10 +1,12 @@
 const { google } = require('googleapis');
 
 function getAuth() {
+  const key = process.env.GOOGLE_PRIVATE_KEY;
+  if (!key) throw new Error('GOOGLE_PRIVATE_KEY env var is not set');
   return new google.auth.JWT(
     process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
     null,
-    process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+    key.replace(/\\n/g, '\n'),
     ['https://www.googleapis.com/auth/spreadsheets']
   );
 }
@@ -15,12 +17,12 @@ module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-admin-password');
 
   if (req.method === 'OPTIONS') return res.status(200).end();
-  if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+  if (req.method !== 'GET') return res.status(405).json({ success: false, error: 'Method not allowed' });
 
   const password = String(req.headers['x-admin-password'] || '').trim();
   const expected = String(process.env.ADMIN_PASSWORD || '').trim();
   if (!password || !expected || password !== expected) {
-    return res.status(401).json({ error: 'Unauthorized' });
+    return res.status(401).json({ success: false, error: 'Unauthorized' });
   }
 
   try {
@@ -33,27 +35,29 @@ module.exports = async function handler(req, res) {
     });
 
     const rows = response.data.values || [];
-    // Skip header row if present
-    const dataRows = rows[0]?.[0] === 'Timestamp' ? rows.slice(1) : rows;
+    const hasHeader = rows.length > 0 && rows[0][0] === 'Timestamp';
+    const dataRows = hasHeader ? rows.slice(1) : rows;
 
-    const orders = dataRows.map((row, index) => ({
-      rowIndex: (rows[0]?.[0] === 'Timestamp' ? index + 2 : index + 1),
-      timestamp: row[0] || '',
-      orderId:   row[1] || '',
-      name:      row[2] || '',
-      phone:     row[3] || '',
-      email:     row[4] || '',
-      address:   row[5] || '',
-      city:      row[6] || '',
-      items:     row[7] || '',
-      payment:   row[8] || '',
-      note:      row[9] || '',
-      status:    row[10] || 'Pending',
-    }));
+    const orders = dataRows
+      .filter(row => row.some(cell => String(cell || '').trim() !== ''))
+      .map((row, index) => ({
+        rowIndex: hasHeader ? index + 2 : index + 1,
+        timestamp: row[0]  || '',
+        orderId:   row[1]  || '',
+        name:      row[2]  || '',
+        phone:     row[3]  || '',
+        email:     row[4]  || '',
+        address:   row[5]  || '',
+        city:      row[6]  || '',
+        items:     row[7]  || '',
+        payment:   row[8]  || '',
+        note:      row[9]  || '',
+        status:    row[10] || 'Pending',
+      }));
 
-    res.status(200).json({ orders });
+    return res.status(200).json({ success: true, orders });
   } catch (err) {
-    console.error('Admin fetch error:', err);
-    res.status(500).json({ error: err.message });
+    console.error('Admin orders fetch error:', err);
+    return res.status(500).json({ success: false, error: err.message });
   }
 };

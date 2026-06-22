@@ -1,10 +1,12 @@
 const { google } = require('googleapis');
 
 function getAuth() {
+  const key = process.env.GOOGLE_PRIVATE_KEY;
+  if (!key) throw new Error('GOOGLE_PRIVATE_KEY env var is not set');
   return new google.auth.JWT(
     process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
     null,
-    process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+    key.replace(/\\n/g, '\n'),
     ['https://www.googleapis.com/auth/spreadsheets']
   );
 }
@@ -12,8 +14,10 @@ function getAuth() {
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
   if (req.method === 'OPTIONS') return res.status(200).end();
-  if (req.method !== 'GET') return res.status(405).end();
+  if (req.method !== 'GET') return res.status(405).json({ success: false, error: 'Method not allowed' });
 
   try {
     const auth = getAuth();
@@ -25,27 +29,33 @@ module.exports = async function handler(req, res) {
     });
 
     const rows = response.data.values || [];
+    // Skip header row (row 1 contains column labels)
     const dataRows = rows.length > 1 ? rows.slice(1) : [];
 
     const products = dataRows
-      .map((row, i) => ({
-        id: 'dyn_' + (row[0] || i),
-        name:   row[1] || '',
-        nameBn: row[2] || '',
-        cat:    row[3] || '',
-        img:    row[4] || '',
-        price:  parseFloat(row[5]) || 0,
-        badge:  row[6] || '',
-        desc:   row[7] || '',
-        active: row[8] !== 'false',
-        rowIndex: i + 2,
-        dynamic: true,
-      }))
+      .filter(row => row.some(cell => String(cell || '').trim() !== ''))
+      .map((row, i) => {
+        const rawPrice = parseFloat(row[5]);
+        return {
+          id:       'dyn_' + String(row[0] || i),
+          name:     String(row[1] || '').trim(),
+          nameBn:   String(row[2] || '').trim(),
+          cat:      String(row[3] || '').trim(),
+          img:      String(row[4] || '').trim(),
+          price:    Number.isFinite(rawPrice) && rawPrice >= 0 ? rawPrice : 0,
+          badge:    String(row[6] || '').trim(),
+          desc:     String(row[7] || '').trim(),
+          active:   String(row[8] || '').trim().toLowerCase() !== 'false',
+          rowIndex: i + 2,
+          dynamic:  true,
+        };
+      })
       .filter(p => p.active && p.name);
 
-    res.status(200).json({ products });
+    return res.status(200).json({ success: true, products });
   } catch (err) {
     console.error('Products fetch error:', err.message);
-    res.status(200).json({ products: [] }); // fail silently so shop still loads
+    // Fail silently with empty array so shop still loads with hardcoded products
+    return res.status(200).json({ success: false, products: [], error: err.message });
   }
 };

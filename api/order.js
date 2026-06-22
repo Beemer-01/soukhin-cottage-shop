@@ -2,12 +2,24 @@ const { google } = require('googleapis');
 const nodemailer = require('nodemailer');
 
 function getAuth() {
+  const key = process.env.GOOGLE_PRIVATE_KEY;
+  if (!key) throw new Error('GOOGLE_PRIVATE_KEY env var is not set');
   return new google.auth.JWT(
     process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
     null,
-    process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+    key.replace(/\\n/g, '\n'),
     ['https://www.googleapis.com/auth/spreadsheets']
   );
+}
+
+function validateOrderBody(body) {
+  if (!body || typeof body !== 'object') return 'Request body is missing';
+  if (!String(body.name || '').trim()) return 'Customer name is required';
+  if (!String(body.phone || '').trim()) return 'Phone number is required';
+  if (!String(body.address || '').trim()) return 'Address is required';
+  if (!String(body.city || '').trim()) return 'City is required';
+  if (!Array.isArray(body.items) || body.items.length === 0) return 'Cart is empty';
+  return null;
 }
 
 async function saveToSheet(orderData) {
@@ -19,20 +31,20 @@ async function saveToSheet(orderData) {
 
   await sheets.spreadsheets.values.append({
     spreadsheetId: process.env.GOOGLE_SHEET_ID,
-    range: 'A:K',
+    range: 'Orders!A:K',
     valueInputOption: 'USER_ENTERED',
     requestBody: {
       values: [[
-        timestamp,
+        timestamp || new Date().toISOString(),
         orderId,
-        name,
-        phone,
-        email || '-',
-        address,
-        city,
+        String(name).trim(),
+        String(phone).trim(),
+        email && email !== '-' ? String(email).trim() : '-',
+        String(address).trim(),
+        String(city).trim(),
         itemsList,
-        payment,
-        note || '-',
+        payment || 'cod',
+        note && note !== '-' ? String(note).trim() : '-',
         'Pending'
       ]]
     }
@@ -40,6 +52,8 @@ async function saveToSheet(orderData) {
 }
 
 async function sendConfirmationEmail(orderData) {
+  // Skip email if not configured or no customer email
+  if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) return;
   if (!orderData.email || orderData.email === '-') return;
 
   const transporter = nodemailer.createTransport({
@@ -74,12 +88,10 @@ async function sendConfirmationEmail(orderData) {
     <div style="padding:28px 32px">
       <h2 style="color:#8B4513;margin:0 0 8px">Order Confirmed! ✅</h2>
       <p style="color:#7A5C4A;margin:0 0 24px">Hi ${name}, thank you for your order. We'll confirm the price and delivery details via phone/SMS within 24 hours.</p>
-
       <div style="background:#FAF7F2;border-radius:10px;padding:16px 20px;margin-bottom:20px">
         <p style="margin:0 0 6px;font-size:0.8rem;color:#7A5C4A;text-transform:uppercase;letter-spacing:0.5px">Order ID</p>
         <p style="margin:0;font-size:1.1rem;font-weight:700;color:#8B4513">#${orderId}</p>
       </div>
-
       <h3 style="color:#2C1810;font-size:0.95rem;margin:0 0 12px">Items Ordered</h3>
       <table style="width:100%;border-collapse:collapse;background:#FAF7F2;border-radius:10px;overflow:hidden;margin-bottom:20px">
         <thead>
@@ -90,15 +102,11 @@ async function sendConfirmationEmail(orderData) {
         </thead>
         <tbody>${itemRows}</tbody>
       </table>
-
       <h3 style="color:#2C1810;font-size:0.95rem;margin:0 0 8px">Delivery Address</h3>
       <p style="color:#7A5C4A;margin:0 0 20px">${address}, ${city}</p>
-
       ${note && note !== '-' ? `<h3 style="color:#2C1810;font-size:0.95rem;margin:0 0 8px">Special Note</h3><p style="color:#7A5C4A;margin:0 0 20px">${note}</p>` : ''}
-
       <h3 style="color:#2C1810;font-size:0.95rem;margin:0 0 8px">Payment</h3>
       ${paymentInstructions}
-
       <p style="color:#7A5C4A;font-size:0.85rem;margin:24px 0 0;padding-top:20px;border-top:1px solid #E8D5C0">
         Questions? Call or WhatsApp us at <strong>01921962964</strong>
       </p>
@@ -124,15 +132,26 @@ module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
   if (req.method === 'OPTIONS') return res.status(200).end();
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+  if (req.method !== 'POST') return res.status(405).json({ success: false, error: 'Method not allowed' });
+
+  const validationError = validateOrderBody(req.body);
+  if (validationError) {
+    return res.status(400).json({ success: false, error: validationError });
+  }
 
   try {
-    const orderData = req.body;
-    await saveToSheet(orderData);
-    await sendConfirmationEmail(orderData);
-    res.status(200).json({ success: true });
+    await saveToSheet(req.body);
   } catch (err) {
-    console.error('Order error:', err);
-    res.status(500).json({ error: err.message });
+    console.error('Sheet save error:', err);
+    return res.status(500).json({ success: false, error: 'Failed to save order. Please try again.' });
   }
+
+  // Email is best-effort — a failure here must not fail the order
+  try {
+    await sendConfirmationEmail(req.body);
+  } catch (err) {
+    console.error('Email send error (non-fatal):', err.message);
+  }
+
+  return res.status(200).json({ success: true });
 };
