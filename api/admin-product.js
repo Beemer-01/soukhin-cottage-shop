@@ -1,79 +1,76 @@
-const { getSheetsClient, checkAdminPassword, ok, fail, setCors, safeInt, safePrice, VALID_BADGES, VALID_CATEGORIES } = require('./_lib');
+const { getSupabase, checkAdminPassword, ok, fail, setCors, safePrice, safeInt, VALID_BADGES, VALID_CATEGORIES } = require('./_lib');
 
 function parseProductBody(b) {
-  const name  = String(b.name  || '').trim();
-  const cat   = String(b.cat   || '').trim();
-  const badge = VALID_BADGES.has(b.badge) ? b.badge : '';
+  const name = String(b.name || '').trim();
+  const cat  = String(b.cat  || '').trim();
   if (!name) return { err: 'Product name is required' };
   if (!VALID_CATEGORIES.has(cat)) return { err: cat ? `Invalid category: "${cat}"` : 'Category is required' };
+  const badge = VALID_BADGES.has(b.badge) ? b.badge : '';
   return {
     name,
-    nameBn: String(b.nameBn || '').trim(),
-    cat,
-    img:    String(b.img    || '').trim(),
-    price:  safePrice(b.price),
+    name_bn:     String(b.nameBn || '').trim(),
+    category:    cat,
+    image_url:   String(b.img   || '').trim(),
+    price:       safePrice(b.price),
     badge,
-    desc:   String(b.desc   || '').trim(),
+    description: String(b.desc  || '').trim(),
+    active:      b.active !== false && b.active !== 'false',
+    sort_order:  safeInt(b.sortOrder, 0) ?? 0,
   };
 }
 
 module.exports = async function handler(req, res) {
   setCors(res, 'POST, PUT, DELETE, OPTIONS');
   if (req.method === 'OPTIONS') return res.status(200).end();
-  if (!checkAdminPassword(req)) return fail(res, 401, 'Unauthorized');
+  if (!checkAdminPassword(req))  return fail(res, 401, 'Unauthorized');
 
+  const supabase = getSupabase();
   const body = req.body || {};
+  const now  = new Date().toISOString();
 
-  // ── ADD ──────────────────────────────────────────────────────
+  // ── POST — create ──────────────────────────────────────────────────────────
   if (req.method === 'POST') {
     const { err, ...fields } = parseProductBody(body);
     if (err) return fail(res, 400, err);
-    try {
-      const id     = Date.now().toString();
-      const sheets = getSheetsClient();
-      await sheets.spreadsheets.values.append({
-        spreadsheetId: process.env.GOOGLE_SHEET_ID,
-        range: 'Products!A:I',
-        valueInputOption: 'USER_ENTERED',
-        requestBody: { values: [[id, fields.name, fields.nameBn, fields.cat, fields.img, fields.price, fields.badge, fields.desc, 'true']] },
-      });
-      return ok(res, { id });
-    } catch (e) { console.error('add-product error:', e); return fail(res, 500, e.message); }
+
+    const id = body.id ? String(body.id).trim() : Date.now().toString();
+
+    // Reject duplicate IDs
+    const { data: existing } = await supabase.from('products').select('id').eq('id', id).maybeSingle();
+    if (existing) return fail(res, 409, `Product ID "${id}" already exists`);
+
+    const { error } = await supabase.from('products').insert({ id, ...fields, created_at: now, updated_at: now });
+    if (error) { console.error('create-product error:', error); return fail(res, 500, error.message); }
+    return ok(res, { id });
   }
 
-  // ── UPDATE ───────────────────────────────────────────────────
+  // ── PUT — update (full or partial active-only toggle) ─────────────────────
   if (req.method === 'PUT') {
-    const row = safeInt(body.rowIndex, 2);
-    if (!row) return fail(res, 400, 'Invalid rowIndex');
+    const id = String(body.id || '').trim();
+    if (!id) return fail(res, 400, 'Product id is required');
+
+    // Partial update: only active field (used by restore)
+    const keys = Object.keys(body).filter(k => k !== 'id');
+    if (keys.length === 1 && keys[0] === 'active') {
+      const { error } = await supabase.from('products').update({ active: body.active !== false && body.active !== 'false', updated_at: now }).eq('id', id);
+      if (error) { console.error('restore-product error:', error); return fail(res, 500, error.message); }
+      return ok(res);
+    }
+
     const { err, ...fields } = parseProductBody(body);
     if (err) return fail(res, 400, err);
-    const active = body.active !== false && body.active !== 'false' ? 'true' : 'false';
-    try {
-      const sheets = getSheetsClient();
-      await sheets.spreadsheets.values.update({
-        spreadsheetId: process.env.GOOGLE_SHEET_ID,
-        range: `Products!B${row}:I${row}`,
-        valueInputOption: 'USER_ENTERED',
-        requestBody: { values: [[fields.name, fields.nameBn, fields.cat, fields.img, fields.price, fields.badge, fields.desc, active]] },
-      });
-      return ok(res);
-    } catch (e) { console.error('update-product error:', e); return fail(res, 500, e.message); }
+    const { error } = await supabase.from('products').update({ ...fields, updated_at: now }).eq('id', id);
+    if (error) { console.error('update-product error:', error); return fail(res, 500, error.message); }
+    return ok(res);
   }
 
-  // ── SOFT DELETE ──────────────────────────────────────────────
+  // ── DELETE — soft delete (set active = false) ──────────────────────────────
   if (req.method === 'DELETE') {
-    const row = safeInt(body.rowIndex, 2);
-    if (!row) return fail(res, 400, 'Invalid rowIndex');
-    try {
-      const sheets = getSheetsClient();
-      await sheets.spreadsheets.values.update({
-        spreadsheetId: process.env.GOOGLE_SHEET_ID,
-        range: `Products!I${row}`,
-        valueInputOption: 'USER_ENTERED',
-        requestBody: { values: [['false']] },
-      });
-      return ok(res);
-    } catch (e) { console.error('delete-product error:', e); return fail(res, 500, e.message); }
+    const id = String(body.id || '').trim();
+    if (!id) return fail(res, 400, 'Product id is required');
+    const { error } = await supabase.from('products').update({ active: false, updated_at: now }).eq('id', id);
+    if (error) { console.error('delete-product error:', error); return fail(res, 500, error.message); }
+    return ok(res);
   }
 
   return fail(res, 405, 'Method not allowed');

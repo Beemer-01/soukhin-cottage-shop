@@ -512,6 +512,9 @@
 <!-- MAIN -->
 <main>
   <div class="section-title">All Products</div>
+  <div id="shopLoading" style="display:none;text-align:center;padding:48px 24px;color:var(--text-muted);font-size:1rem">
+    ⏳ Loading products… / পণ্য লোড হচ্ছে…
+  </div>
   <div class="product-grid" id="productGrid"></div>
 </main>
 
@@ -678,184 +681,7 @@
 </div>
 
 <script>
-// ── DATA ──────────────────────────────────────────────────────
-const categories = [
-  'All', 'Pottery', 'Steel Products', 'Wood Craft',
-  'Jute Goods', 'Bamboo Craft', 'Miscellaneous', 'Mini Aquarium'
-];
-
-const products = [
-  // POTTERY — মাটির পণ্য (32 items)
-  {id:1,  name:'Clay Pot 1',   nameBn:'মাটির পাত্র',      cat:'Pottery',        img:'images/pottery/pottery_1.jpg',  price:450,  badge:'hot'},
-  {id:2,  name:'Clay Pot 2',   nameBn:'মাটির পাত্র',      cat:'Pottery',        img:'images/pottery/pottery_2.jpg',  price:380,  badge:''},
-  {id:3,  name:'Clay Pot 3',   nameBn:'মাটির পাত্র',      cat:'Pottery',        img:'images/pottery/pottery_3.jpg',  price:520,  badge:'new'},
-  {id:4,  name:'Clay Pot 4',   nameBn:'মাটির পাত্র',      cat:'Pottery',        img:'images/pottery/pottery_4.jpg',  price:400,  badge:''},
-  {id:5,  name:'Clay Pot 5',   nameBn:'মাটির পাত্র',      cat:'Pottery',        img:'images/pottery/pottery_5.jpg',  price:480,  badge:''},
-  {id:6,  name:'Clay Pot 6',   nameBn:'মাটির পাত্র',      cat:'Pottery',        img:'images/pottery/pottery_6.jpg',  price:350,  badge:'hot'},
-  {id:7,  name:'Clay Pot 7',   nameBn:'মাটির পাত্র',      cat:'Pottery',        img:'images/pottery/pottery_7.jpg',  price:600,  badge:''},
-  {id:8,  name:'Clay Pot 8',   nameBn:'মাটির পাত্র',      cat:'Pottery',        img:'images/pottery/pottery_8.jpg',  price:420,  badge:''},
-  {id:9,  name:'Clay Pot 9',   nameBn:'মাটির পাত্র',      cat:'Pottery',        img:'images/pottery/pottery_9.jpg',  price:550,  badge:'new'},
-  {id:10, name:'Clay Pot 10',  nameBn:'মাটির পাত্র',      cat:'Pottery',        img:'images/pottery/pottery_10.jpg', price:390,  badge:''},
-  {id:11, name:'Clay Pot 11',  nameBn:'মাটির পাত্র',      cat:'Pottery',        img:'images/pottery/pottery_11.jpg', price:500,  badge:''},
-  {id:12, name:'Clay Pot 12',  nameBn:'মাটির পাত্র',      cat:'Pottery',        img:'images/pottery/pottery_12.jpg', price:460,  badge:'hot'},
-  {id:13, name:'Clay Pot 13',  nameBn:'মাটির পাত্র',      cat:'Pottery',        img:'images/pottery/pottery_13.jpg', price:430,  badge:''},
-  {id:14, name:'Clay Pot 14',  nameBn:'মাটির পাত্র',      cat:'Pottery',        img:'images/pottery/pottery_14.jpg', price:510,  badge:''},
-  {id:15, name:'Clay Pot 15',  nameBn:'মাটির পাত্র',      cat:'Pottery',        img:'images/pottery/pottery_15.jpg', price:370,  badge:'new'},
-  {id:16, name:'Clay Pot 16',  nameBn:'মাটির পাত্র',      cat:'Pottery',        img:'images/pottery/pottery_16.jpg', price:490,  badge:''},
-  {id:17, name:'Clay Pot 17',  nameBn:'মাটির পাত্র',      cat:'Pottery',        img:'images/pottery/pottery_17.jpg', price:440,  badge:''},
-  {id:18, name:'Clay Pot 18',  nameBn:'মাটির পাত্র',      cat:'Pottery',        img:'images/pottery/pottery_18.jpg', price:580,  badge:''},
-  {id:19, name:'Clay Pot 19',  nameBn:'মাটির পাত্র',      cat:'Pottery',        img:'images/pottery/pottery_19.jpg', price:360,  badge:'hot'},
-  {id:20, name:'Clay Pot 20',  nameBn:'মাটির পাত্র',      cat:'Pottery',        img:'images/pottery/pottery_20.jpg', price:420,  badge:''},
-  {id:21, name:'Clay Pot 21',  nameBn:'মাটির পাত্র',      cat:'Pottery',        img:'images/pottery/pottery_21.jpg', price:530,  badge:''},
-  {id:22, name:'Clay Pot 22',  nameBn:'মাটির পাত্র',      cat:'Pottery',        img:'images/pottery/pottery_22.jpg', price:410,  badge:'new'},
-  {id:23, name:'Clay Pot 23',  nameBn:'মাটির পাত্র',      cat:'Pottery',        img:'images/pottery/pottery_23.jpg', price:470,  badge:''},
-  {id:24, name:'Clay Pot 24',  nameBn:'মাটির পাত্র',      cat:'Pottery',        img:'images/pottery/pottery_24.jpg', price:395,  badge:''},
-  {id:25, name:'Clay Pot 25',  nameBn:'মাটির পাত্র',      cat:'Pottery',        img:'images/pottery/pottery_25.jpg', price:560,  badge:''},
-  {id:26, name:'Clay Pot 26',  nameBn:'মাটির পাত্র',      cat:'Pottery',        img:'images/pottery/pottery_26.jpg', price:340,  badge:'hot'},
-  {id:27, name:'Clay Pot 27',  nameBn:'মাটির পাত্র',      cat:'Pottery',        img:'images/pottery/pottery_27.jpg', price:480,  badge:''},
-  {id:28, name:'Clay Pot 28',  nameBn:'মাটির পাত্র',      cat:'Pottery',        img:'images/pottery/pottery_28.jpg', price:520,  badge:''},
-  {id:29, name:'Clay Pot 29',  nameBn:'মাটির পাত্র',      cat:'Pottery',        img:'images/pottery/pottery_29.jpg', price:445,  badge:'new'},
-  {id:30, name:'Clay Pot 30',  nameBn:'মাটির পাত্র',      cat:'Pottery',        img:'images/pottery/pottery_30.jpg', price:390,  badge:''},
-  {id:31, name:'Clay Pot 31',  nameBn:'মাটির পাত্র',      cat:'Pottery',        img:'images/pottery/pottery_31.jpg', price:500,  badge:''},
-  {id:32, name:'Clay Pot 32',  nameBn:'মাটির পাত্র',      cat:'Pottery',        img:'images/pottery/pottery_32.jpg', price:460,  badge:''},
-
-  // STEEL PRODUCTS — রডের আইটেম (23 items)
-  {id:33, name:'Steel Item 1',  nameBn:'রডের আইটেম',      cat:'Steel Products', img:'images/steel/steel_1.jpg',     price:850,  badge:'hot'},
-  {id:34, name:'Steel Item 2',  nameBn:'রডের আইটেম',      cat:'Steel Products', img:'images/steel/steel_2.jpg',     price:1200, badge:''},
-  {id:35, name:'Steel Item 3',  nameBn:'রডের আইটেম',      cat:'Steel Products', img:'images/steel/steel_3.jpg',     price:950,  badge:'new'},
-  {id:36, name:'Steel Item 4',  nameBn:'রডের আইটেম',      cat:'Steel Products', img:'images/steel/steel_4.jpg',     price:780,  badge:''},
-  {id:37, name:'Steel Item 5',  nameBn:'রডের আইটেম',      cat:'Steel Products', img:'images/steel/steel_5.jpg',     price:1100, badge:''},
-  {id:38, name:'Steel Item 6',  nameBn:'রডের আইটেম',      cat:'Steel Products', img:'images/steel/steel_6.jpg',     price:650,  badge:'hot'},
-  {id:39, name:'Steel Item 7',  nameBn:'রডের আইটেম',      cat:'Steel Products', img:'images/steel/steel_7.jpg',     price:1350, badge:''},
-  {id:40, name:'Steel Item 8',  nameBn:'রডের আইটেম',      cat:'Steel Products', img:'images/steel/steel_8.jpg',     price:900,  badge:''},
-  {id:41, name:'Steel Item 9',  nameBn:'রডের আইটেম',      cat:'Steel Products', img:'images/steel/steel_9.jpg',     price:1050, badge:'new'},
-  {id:42, name:'Steel Item 10', nameBn:'রডের আইটেম',      cat:'Steel Products', img:'images/steel/steel_10.jpg',    price:820,  badge:''},
-  {id:43, name:'Steel Item 11', nameBn:'রডের আইটেম',      cat:'Steel Products', img:'images/steel/steel_11.jpg',    price:1400, badge:'hot'},
-  {id:44, name:'Steel Item 12', nameBn:'রডের আইটেম',      cat:'Steel Products', img:'images/steel/steel_12.jpg',    price:980,  badge:''},
-  {id:45, name:'Steel Item 13', nameBn:'রডের আইটেম',      cat:'Steel Products', img:'images/steel/steel_13.jpg',    price:750,  badge:''},
-  {id:46, name:'Steel Item 14', nameBn:'রডের আইটেম',      cat:'Steel Products', img:'images/steel/steel_14.jpg',    price:1150, badge:'new'},
-  {id:47, name:'Steel Item 15', nameBn:'রডের আইটেম',      cat:'Steel Products', img:'images/steel/steel_15.jpg',    price:880,  badge:''},
-  {id:48, name:'Steel Item 16', nameBn:'রডের আইটেম',      cat:'Steel Products', img:'images/steel/steel_16.jpg',    price:1280, badge:''},
-  {id:49, name:'Steel Item 17', nameBn:'রডের আইটেম',      cat:'Steel Products', img:'images/steel/steel_17.jpg',    price:720,  badge:'hot'},
-  {id:50, name:'Steel Item 18', nameBn:'রডের আইটেম',      cat:'Steel Products', img:'images/steel/steel_18.jpg',    price:1000, badge:''},
-  {id:51, name:'Steel Item 19', nameBn:'রডের আইটেম',      cat:'Steel Products', img:'images/steel/steel_19.jpg',    price:930,  badge:''},
-  {id:52, name:'Steel Item 20', nameBn:'রডের আইটেম',      cat:'Steel Products', img:'images/steel/steel_20.jpg',    price:1180, badge:'new'},
-  {id:53, name:'Steel Item 21', nameBn:'রডের আইটেম',      cat:'Steel Products', img:'images/steel/steel_21.jpg',    price:860,  badge:''},
-  {id:54, name:'Steel Item 22', nameBn:'রডের আইটেম',      cat:'Steel Products', img:'images/steel/steel_22.jpg',    price:1320, badge:''},
-  {id:55, name:'Steel Item 23', nameBn:'রডের আইটেম',      cat:'Steel Products', img:'images/steel/steel_23.jpg',    price:970,  badge:'hot'},
-
-  // WOOD CRAFT — কাঠের পণ্য (19 items)
-  {id:56, name:'Wood Craft 1',  nameBn:'কাঠের শিল্প',      cat:'Wood Craft',     img:'images/wood/wood_1.jpg',       price:1100, badge:''},
-  {id:57, name:'Wood Craft 2',  nameBn:'কাঠের শিল্প',      cat:'Wood Craft',     img:'images/wood/wood_2.jpg',       price:850,  badge:'hot'},
-  {id:58, name:'Wood Craft 3',  nameBn:'কাঠের শিল্প',      cat:'Wood Craft',     img:'images/wood/wood_3.jpg',       price:1400, badge:'new'},
-  {id:59, name:'Wood Craft 4',  nameBn:'কাঠের শিল্প',      cat:'Wood Craft',     img:'images/wood/wood_4.jpg',       price:950,  badge:''},
-  {id:60, name:'Wood Craft 5',  nameBn:'কাঠের শিল্প',      cat:'Wood Craft',     img:'images/wood/wood_5.jpg',       price:1250, badge:''},
-  {id:61, name:'Wood Craft 6',  nameBn:'কাঠের শিল্প',      cat:'Wood Craft',     img:'images/wood/wood_6.jpg',       price:780,  badge:'hot'},
-  {id:62, name:'Wood Craft 7',  nameBn:'কাঠের শিল্প',      cat:'Wood Craft',     img:'images/wood/wood_7.jpg',       price:1600, badge:''},
-  {id:63, name:'Wood Craft 8',  nameBn:'কাঠের শিল্প',      cat:'Wood Craft',     img:'images/wood/wood_8.jpg',       price:1050, badge:''},
-  {id:64, name:'Wood Craft 9',  nameBn:'কাঠের শিল্প',      cat:'Wood Craft',     img:'images/wood/wood_9.jpg',       price:920,  badge:'new'},
-  {id:65, name:'Wood Craft 10', nameBn:'কাঠের শিল্প',      cat:'Wood Craft',     img:'images/wood/wood_10.jpg',      price:1300, badge:''},
-  {id:66, name:'Wood Craft 11', nameBn:'কাঠের শিল্প',      cat:'Wood Craft',     img:'images/wood/wood_11.jpg',      price:880,  badge:''},
-  {id:67, name:'Wood Craft 12', nameBn:'কাঠের শিল্প',      cat:'Wood Craft',     img:'images/wood/wood_12.jpg',      price:1450, badge:'hot'},
-  {id:68, name:'Wood Craft 13', nameBn:'কাঠের শিল্প',      cat:'Wood Craft',     img:'images/wood/wood_13.jpg',      price:1000, badge:''},
-  {id:69, name:'Wood Craft 14', nameBn:'কাঠের শিল্প',      cat:'Wood Craft',     img:'images/wood/wood_14.jpg',      price:1150, badge:'new'},
-  {id:70, name:'Wood Craft 15', nameBn:'কাঠের শিল্প',      cat:'Wood Craft',     img:'images/wood/wood_15.jpg',      price:830,  badge:''},
-  {id:71, name:'Wood Craft 16', nameBn:'কাঠের শিল্প',      cat:'Wood Craft',     img:'images/wood/wood_16.jpg',      price:1350, badge:''},
-  {id:72, name:'Wood Craft 17', nameBn:'কাঠের শিল্প',      cat:'Wood Craft',     img:'images/wood/wood_17.jpg',      price:960,  badge:'hot'},
-  {id:73, name:'Wood Craft 18', nameBn:'কাঠের শিল্প',      cat:'Wood Craft',     img:'images/wood/wood_18.jpg',      price:1200, badge:''},
-  {id:74, name:'Wood Craft 19', nameBn:'কাঠের শিল্প',      cat:'Wood Craft',     img:'images/wood/wood_19.jpg',      price:1080, badge:'new'},
-
-  // JUTE GOODS — পাটের পণ্য (35 items)
-  {id:75, name:'Jute Item 1',   nameBn:'পাটের পণ্য',       cat:'Jute Goods',     img:'images/jute/jute_1.jpg',       price:480,  badge:'hot'},
-  {id:76, name:'Jute Item 2',   nameBn:'পাটের পণ্য',       cat:'Jute Goods',     img:'images/jute/jute_2.jpg',       price:350,  badge:''},
-  {id:77, name:'Jute Item 3',   nameBn:'পাটের পণ্য',       cat:'Jute Goods',     img:'images/jute/jute_3.jpg',       price:620,  badge:'new'},
-  {id:78, name:'Jute Item 4',   nameBn:'পাটের পণ্য',       cat:'Jute Goods',     img:'images/jute/jute_4.jpg',       price:400,  badge:''},
-  {id:79, name:'Jute Item 5',   nameBn:'পাটের পণ্য',       cat:'Jute Goods',     img:'images/jute/jute_5.jpg',       price:520,  badge:''},
-  {id:80, name:'Jute Item 6',   nameBn:'পাটের পণ্য',       cat:'Jute Goods',     img:'images/jute/jute_6.jpg',       price:380,  badge:'hot'},
-  {id:81, name:'Jute Item 7',   nameBn:'পাটের পণ্য',       cat:'Jute Goods',     img:'images/jute/jute_7.jpg',       price:680,  badge:''},
-  {id:82, name:'Jute Item 8',   nameBn:'পাটের পণ্য',       cat:'Jute Goods',     img:'images/jute/jute_8.jpg',       price:440,  badge:''},
-  {id:83, name:'Jute Item 9',   nameBn:'পাটের পণ্য',       cat:'Jute Goods',     img:'images/jute/jute_9.jpg',       price:580,  badge:'new'},
-  {id:84, name:'Jute Item 10',  nameBn:'পাটের পণ্য',       cat:'Jute Goods',     img:'images/jute/jute_10.jpg',      price:320,  badge:''},
-  {id:85, name:'Jute Item 11',  nameBn:'পাটের পণ্য',       cat:'Jute Goods',     img:'images/jute/jute_11.jpg',      price:560,  badge:'hot'},
-  {id:86, name:'Jute Item 12',  nameBn:'পাটের পণ্য',       cat:'Jute Goods',     img:'images/jute/jute_12.jpg',      price:420,  badge:''},
-  {id:87, name:'Jute Item 13',  nameBn:'পাটের পণ্য',       cat:'Jute Goods',     img:'images/jute/jute_13.jpg',      price:650,  badge:''},
-  {id:88, name:'Jute Item 14',  nameBn:'পাটের পণ্য',       cat:'Jute Goods',     img:'images/jute/jute_14.jpg',      price:370,  badge:'new'},
-  {id:89, name:'Jute Item 15',  nameBn:'পাটের পণ্য',       cat:'Jute Goods',     img:'images/jute/jute_15.jpg',      price:500,  badge:''},
-  {id:90, name:'Jute Item 16',  nameBn:'পাটের পণ্য',       cat:'Jute Goods',     img:'images/jute/jute_16.jpg',      price:460,  badge:''},
-  {id:91, name:'Jute Item 17',  nameBn:'পাটের পণ্য',       cat:'Jute Goods',     img:'images/jute/jute_17.jpg',      price:720,  badge:'hot'},
-  {id:92, name:'Jute Item 18',  nameBn:'পাটের পণ্য',       cat:'Jute Goods',     img:'images/jute/jute_18.jpg',      price:395,  badge:''},
-  {id:93, name:'Jute Item 19',  nameBn:'পাটের পণ্য',       cat:'Jute Goods',     img:'images/jute/jute_19.jpg',      price:540,  badge:'new'},
-  {id:94, name:'Jute Item 20',  nameBn:'পাটের পণ্য',       cat:'Jute Goods',     img:'images/jute/jute_20.jpg',      price:410,  badge:''},
-  {id:95, name:'Jute Item 21',  nameBn:'পাটের পণ্য',       cat:'Jute Goods',     img:'images/jute/jute_21.jpg',      price:600,  badge:''},
-  {id:96, name:'Jute Item 22',  nameBn:'পাটের পণ্য',       cat:'Jute Goods',     img:'images/jute/jute_22.jpg',      price:355,  badge:'hot'},
-  {id:97, name:'Jute Item 23',  nameBn:'পাটের পণ্য',       cat:'Jute Goods',     img:'images/jute/jute_23.jpg',      price:480,  badge:''},
-  {id:98, name:'Jute Item 24',  nameBn:'পাটের পণ্য',       cat:'Jute Goods',     img:'images/jute/jute_24.jpg',      price:630,  badge:'new'},
-  {id:99, name:'Jute Item 25',  nameBn:'পাটের পণ্য',       cat:'Jute Goods',     img:'images/jute/jute_25.jpg',      price:385,  badge:''},
-  {id:100,name:'Jute Item 26',  nameBn:'পাটের পণ্য',       cat:'Jute Goods',     img:'images/jute/jute_26.jpg',      price:510,  badge:''},
-  {id:101,name:'Jute Item 27',  nameBn:'পাটের পণ্য',       cat:'Jute Goods',     img:'images/jute/jute_27.jpg',      price:440,  badge:'hot'},
-  {id:102,name:'Jute Item 28',  nameBn:'পাটের পণ্য',       cat:'Jute Goods',     img:'images/jute/jute_28.jpg',      price:690,  badge:''},
-  {id:103,name:'Jute Item 29',  nameBn:'পাটের পণ্য',       cat:'Jute Goods',     img:'images/jute/jute_29.jpg',      price:360,  badge:'new'},
-  {id:104,name:'Jute Item 30',  nameBn:'পাটের পণ্য',       cat:'Jute Goods',     img:'images/jute/jute_30.jpg',      price:575,  badge:''},
-  {id:105,name:'Jute Item 31',  nameBn:'পাটের পণ্য',       cat:'Jute Goods',     img:'images/jute/jute_31.jpg',      price:420,  badge:''},
-  {id:106,name:'Jute Item 32',  nameBn:'পাটের পণ্য',       cat:'Jute Goods',     img:'images/jute/jute_32.jpg',      price:490,  badge:'hot'},
-  {id:107,name:'Jute Item 33',  nameBn:'পাটের পণ্য',       cat:'Jute Goods',     img:'images/jute/jute_33.jpg',      price:340,  badge:''},
-  {id:108,name:'Jute Item 34',  nameBn:'পাটের পণ্য',       cat:'Jute Goods',     img:'images/jute/jute_34.jpg',      price:620,  badge:'new'},
-  {id:109,name:'Jute Item 35',  nameBn:'পাটের পণ্য',       cat:'Jute Goods',     img:'images/jute/jute_35.jpg',      price:455,  badge:''},
-
-  // BAMBOO CRAFT — বাশ (25 items)
-  {id:110,name:'Bamboo Craft 1', nameBn:'বাঁশের শিল্প',    cat:'Bamboo Craft',   img:'images/bamboo/bamboo_1.jpg',   price:380,  badge:'hot'},
-  {id:111,name:'Bamboo Craft 2', nameBn:'বাঁশের শিল্প',    cat:'Bamboo Craft',   img:'images/bamboo/bamboo_2.jpg',   price:520,  badge:''},
-  {id:112,name:'Bamboo Craft 3', nameBn:'বাঁশের শিল্প',    cat:'Bamboo Craft',   img:'images/bamboo/bamboo_3.jpg',   price:450,  badge:'new'},
-  {id:113,name:'Bamboo Craft 4', nameBn:'বাঁশের শিল্প',    cat:'Bamboo Craft',   img:'images/bamboo/bamboo_4.jpg',   price:680,  badge:''},
-  {id:114,name:'Bamboo Craft 5', nameBn:'বাঁশের শিল্প',    cat:'Bamboo Craft',   img:'images/bamboo/bamboo_5.jpg',   price:320,  badge:''},
-  {id:115,name:'Bamboo Craft 6', nameBn:'বাঁশের শিল্প',    cat:'Bamboo Craft',   img:'images/bamboo/bamboo_6.jpg',   price:580,  badge:'hot'},
-  {id:116,name:'Bamboo Craft 7', nameBn:'বাঁশের শিল্প',    cat:'Bamboo Craft',   img:'images/bamboo/bamboo_7.jpg',   price:410,  badge:''},
-  {id:117,name:'Bamboo Craft 8', nameBn:'বাঁশের শিল্প',    cat:'Bamboo Craft',   img:'images/bamboo/bamboo_8.jpg',   price:750,  badge:'new'},
-  {id:118,name:'Bamboo Craft 9', nameBn:'বাঁশের শিল্প',    cat:'Bamboo Craft',   img:'images/bamboo/bamboo_9.jpg',   price:490,  badge:''},
-  {id:119,name:'Bamboo Craft 10',nameBn:'বাঁশের শিল্প',    cat:'Bamboo Craft',   img:'images/bamboo/bamboo_10.jpg',  price:360,  badge:''},
-  {id:120,name:'Bamboo Craft 11',nameBn:'বাঁশের শিল্প',    cat:'Bamboo Craft',   img:'images/bamboo/bamboo_11.jpg',  price:620,  badge:'hot'},
-  {id:121,name:'Bamboo Craft 12',nameBn:'বাঁশের শিল্প',    cat:'Bamboo Craft',   img:'images/bamboo/bamboo_12.jpg',  price:440,  badge:''},
-  {id:122,name:'Bamboo Craft 13',nameBn:'বাঁশের শিল্প',    cat:'Bamboo Craft',   img:'images/bamboo/bamboo_13.jpg',  price:550,  badge:'new'},
-  {id:123,name:'Bamboo Craft 14',nameBn:'বাঁশের শিল্প',    cat:'Bamboo Craft',   img:'images/bamboo/bamboo_14.jpg',  price:390,  badge:''},
-  {id:124,name:'Bamboo Craft 15',nameBn:'বাঁশের শিল্প',    cat:'Bamboo Craft',   img:'images/bamboo/bamboo_15.jpg',  price:700,  badge:''},
-  {id:125,name:'Bamboo Craft 16',nameBn:'বাঁশের শিল্প',    cat:'Bamboo Craft',   img:'images/bamboo/bamboo_16.jpg',  price:470,  badge:'hot'},
-  {id:126,name:'Bamboo Craft 17',nameBn:'বাঁশের শিল্প',    cat:'Bamboo Craft',   img:'images/bamboo/bamboo_17.jpg',  price:340,  badge:''},
-  {id:127,name:'Bamboo Craft 18',nameBn:'বাঁশের শিল্প',    cat:'Bamboo Craft',   img:'images/bamboo/bamboo_18.jpg',  price:590,  badge:'new'},
-  {id:128,name:'Bamboo Craft 19',nameBn:'বাঁশের শিল্প',    cat:'Bamboo Craft',   img:'images/bamboo/bamboo_19.jpg',  price:430,  badge:''},
-  {id:129,name:'Bamboo Craft 20',nameBn:'বাঁশের শিল্প',    cat:'Bamboo Craft',   img:'images/bamboo/bamboo_20.jpg',  price:660,  badge:''},
-  {id:130,name:'Bamboo Craft 21',nameBn:'বাঁশের শিল্প',    cat:'Bamboo Craft',   img:'images/bamboo/bamboo_21.jpg',  price:375,  badge:'hot'},
-  {id:131,name:'Bamboo Craft 22',nameBn:'বাঁশের শিল্প',    cat:'Bamboo Craft',   img:'images/bamboo/bamboo_22.jpg',  price:510,  badge:''},
-  {id:132,name:'Bamboo Craft 23',nameBn:'বাঁশের শিল্প',    cat:'Bamboo Craft',   img:'images/bamboo/bamboo_23.jpg',  price:460,  badge:'new'},
-  {id:133,name:'Bamboo Craft 24',nameBn:'বাঁশের শিল্প',    cat:'Bamboo Craft',   img:'images/bamboo/bamboo_24.jpg',  price:720,  badge:''},
-  {id:134,name:'Bamboo Craft 25',nameBn:'বাঁশের শিল্প',    cat:'Bamboo Craft',   img:'images/bamboo/bamboo_25.jpg',  price:395,  badge:''},
-
-  // MISCELLANEOUS — বিবিধ (12 items)
-  {id:135,name:'Misc Item 1',   nameBn:'বিবিধ পণ্য',       cat:'Miscellaneous',  img:'images/misc/misc_1.jpg',       price:950,  badge:'hot'},
-  {id:136,name:'Misc Item 2',   nameBn:'বিবিধ পণ্য',       cat:'Miscellaneous',  img:'images/misc/misc_2.jpg',       price:1200, badge:''},
-  {id:137,name:'Misc Item 3',   nameBn:'বিবিধ পণ্য',       cat:'Miscellaneous',  img:'images/misc/misc_3.jpg',       price:780,  badge:'new'},
-  {id:138,name:'Misc Item 4',   nameBn:'বিবিধ পণ্য',       cat:'Miscellaneous',  img:'images/misc/misc_4.jpg',       price:1500, badge:''},
-  {id:139,name:'Misc Item 5',   nameBn:'বিবিধ পণ্য',       cat:'Miscellaneous',  img:'images/misc/misc_5.jpg',       price:880,  badge:''},
-  {id:140,name:'Misc Item 6',   nameBn:'বিবিধ পণ্য',       cat:'Miscellaneous',  img:'images/misc/misc_6.jpg',       price:1100, badge:'hot'},
-  {id:141,name:'Misc Item 7',   nameBn:'বিবিধ পণ্য',       cat:'Miscellaneous',  img:'images/misc/misc_7.jpg',       price:650,  badge:''},
-  {id:142,name:'Misc Item 8',   nameBn:'বিবিধ পণ্য',       cat:'Miscellaneous',  img:'images/misc/misc_8.jpg',       price:1350, badge:'new'},
-  {id:143,name:'Misc Item 9',   nameBn:'বিবিধ পণ্য',       cat:'Miscellaneous',  img:'images/misc/misc_9.jpg',       price:920,  badge:''},
-  {id:144,name:'Misc Item 10',  nameBn:'বিবিধ পণ্য',       cat:'Miscellaneous',  img:'images/misc/misc_10.jpg',      price:1050, badge:''},
-  {id:145,name:'Misc Item 11',  nameBn:'বিবিধ পণ্য',       cat:'Miscellaneous',  img:'images/misc/misc_11.jpg',      price:750,  badge:'hot'},
-  {id:146,name:'Misc Item 12',  nameBn:'বিবিধ পণ্য',       cat:'Miscellaneous',  img:'images/misc/misc_12.jpg',      price:1180, badge:'new'},
-
-  // MINI AQUARIUM — মিনি একুরিয়াম (8 items)
-  {id:147,name:'Mini Aquarium 1',nameBn:'মিনি একুরিয়াম',  cat:'Mini Aquarium',  img:'images/aquarium/aquarium_1.jpg', price:1800, badge:'hot'},
-  {id:148,name:'Mini Aquarium 2',nameBn:'মিনি একুরিয়াম',  cat:'Mini Aquarium',  img:'images/aquarium/aquarium_2.jpg', price:2200, badge:''},
-  {id:149,name:'Mini Aquarium 3',nameBn:'মিনি একুরিয়াম',  cat:'Mini Aquarium',  img:'images/aquarium/aquarium_3.jpg', price:1500, badge:'new'},
-  {id:150,name:'Mini Aquarium 4',nameBn:'মিনি একুরিয়াম',  cat:'Mini Aquarium',  img:'images/aquarium/aquarium_4.jpg', price:2500, badge:''},
-  {id:151,name:'Mini Aquarium 5',nameBn:'মিনি একুরিয়াম',  cat:'Mini Aquarium',  img:'images/aquarium/aquarium_5.jpg', price:1950, badge:''},
-  {id:152,name:'Mini Aquarium 6',nameBn:'মিনি একুরিয়াম',  cat:'Mini Aquarium',  img:'images/aquarium/aquarium_6.jpg', price:2800, badge:'hot'},
-  {id:153,name:'Mini Aquarium 7',nameBn:'মিনি একুরিয়াম',  cat:'Mini Aquarium',  img:'images/aquarium/aquarium_7.jpg', price:1650, badge:'new'},
-  {id:154,name:'Mini Aquarium 8',nameBn:'মিনি একুরিয়াম',  cat:'Mini Aquarium',  img:'images/aquarium/aquarium_8.jpg', price:3000, badge:''},
-];
-
-// ── HELPERS ───────────────────────────────────────────────────
-// Escape user-controlled text before putting it into HTML strings
+// ── HELPERS ──────────────────────────────────────────────────
 function esc(v) {
   return String(v == null ? '' : v)
     .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
@@ -873,11 +699,11 @@ async function jsonFetch(url, opts = {}) {
   }
 }
 
-// ── CURRENCY ──────────────────────────────────────────────────
-const CURRENCY_SYMBOLS  = { BDT: '৳', USD: '$', CAD: 'CA$', GBP: '£', EUR: '€' };
-const FALLBACK_RATES    = { BDT: 1, USD: 0.0091, CAD: 0.0124, GBP: 0.0072, EUR: 0.0083 };
-let   exchangeRates     = { ...FALLBACK_RATES };
-let   activeCurrency    = localStorage.getItem('sk_currency') || 'BDT';
+// ── CURRENCY ─────────────────────────────────────────────────
+const CURRENCY_SYMBOLS = { BDT: '৳', USD: '$', CAD: 'CA$', GBP: '£', EUR: '€' };
+const FALLBACK_RATES   = { BDT: 1, USD: 0.0091, CAD: 0.0124, GBP: 0.0072, EUR: 0.0083 };
+let   exchangeRates    = { ...FALLBACK_RATES };
+let   activeCurrency   = localStorage.getItem('sk_currency') || 'BDT';
 
 async function fetchExchangeRates() {
   const { ok, data } = await jsonFetch('https://api.frankfurter.app/latest?from=BDT&to=USD,CAD,GBP,EUR');
@@ -901,7 +727,7 @@ function changeCurrency(c) {
   renderProducts();
 }
 
-// ── FUZZY SEARCH ──────────────────────────────────────────────
+// ── FUZZY SEARCH ─────────────────────────────────────────────
 function fuzzyScore(text, query) {
   text  = String(text  || '').toLowerCase();
   query = String(query || '').toLowerCase().trim();
@@ -925,7 +751,7 @@ function searchProducts(list, q) {
     .sort((a, b) => b._score - a._score);
 }
 
-// ── CART ──────────────────────────────────────────────────────
+// ── CART ─────────────────────────────────────────────────────
 let cart = (() => {
   try { return JSON.parse(localStorage.getItem('sk_cart') || '[]'); }
   catch { localStorage.removeItem('sk_cart'); return []; }
@@ -936,29 +762,63 @@ function saveCart() {
   catch (e) { console.warn('saveCart failed:', e); }
 }
 
-// ── MODAL HELPERS ─────────────────────────────────────────────
+// ── MODAL HELPERS ────────────────────────────────────────────
 function openModal(id)  { document.getElementById(id).classList.add('open');    document.body.style.overflow = 'hidden'; }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); document.body.style.overflow = ''; }
 
-// ── STATE ─────────────────────────────────────────────────────
-let activeCategory = 'All';
-let allProducts    = [...products];
+// ── STATE ────────────────────────────────────────────────────
+const categories = [
+  'All', 'Pottery', 'Steel Products', 'Wood Craft',
+  'Jute Goods', 'Bamboo Craft', 'Miscellaneous', 'Mini Aquarium',
+  'Copper Craft', 'Cane Craft', 'Handmade Lamps', 'Fountain Craft',
+  'Ornaments', 'Gift Items', 'Ship Souvenirs',
+];
 
-// ── INIT ──────────────────────────────────────────────────────
+let activeCategory = 'All';
+let allProducts    = [];
+
+// ── INIT ─────────────────────────────────────────────────────
 async function init() {
   document.getElementById('currencySelect').value = activeCurrency;
   fetchExchangeRates().then(() => renderProducts());
   renderFilterBar();
-  renderProducts();
   renderCart();
+  showShopLoading(true);
+
   const { ok, data } = await jsonFetch('/api/products');
-  if (ok && Array.isArray(data.products) && data.products.length) {
-    allProducts = [...products, ...data.products];
+  showShopLoading(false);
+
+  if (ok && Array.isArray(data.data) && data.data.length) {
+    allProducts = data.data;
     renderProducts();
+  } else {
+    showShopError(!ok);
   }
 }
 
-// ── FILTER BAR ────────────────────────────────────────────────
+function showShopLoading(on) {
+  document.getElementById('shopLoading').style.display = on ? 'block' : 'none';
+  if (on) document.getElementById('productGrid').innerHTML = '';
+}
+
+function showShopError(networkFailed) {
+  document.getElementById('productGrid').innerHTML =
+    `<div class="no-results" style="text-align:center;padding:48px 24px">
+      <div class="icon" style="font-size:3rem;margin-bottom:16px">😔</div>
+      <b style="font-size:1.1rem">পণ্য লোড হয়নি / Products unavailable</b><br/>
+      <span style="color:var(--text-muted);font-size:0.9rem;margin-top:8px;display:block">
+        ${networkFailed
+          ? 'নেটওয়ার্ক সমস্যা। পেজ রিফ্রেশ করুন। / Network error — please refresh.'
+          : 'পণ্য তালিকা খালি। / No products available right now.'
+        }
+      </span>
+      <button onclick="location.reload()" style="margin-top:20px;padding:10px 28px;background:var(--primary);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:0.95rem">
+        🔄 Refresh / রিফ্রেশ করুন
+      </button>
+    </div>`;
+}
+
+// ── FILTER BAR ───────────────────────────────────────────────
 function renderFilterBar() {
   const bar = document.getElementById('filterBar');
   bar.innerHTML = '';
@@ -972,8 +832,7 @@ function renderFilterBar() {
 }
 function setCategory(cat) { activeCategory = cat; renderFilterBar(); renderProducts(); }
 
-// ── PRODUCTS ──────────────────────────────────────────────────
-// Product card map for safe reference from onclick
+// ── PRODUCTS ─────────────────────────────────────────────────
 const _pmap = {};
 
 function renderProducts() {
@@ -983,12 +842,13 @@ function renderProducts() {
   if (activeCategory !== 'All') filtered = filtered.filter(p => p.cat === activeCategory);
   filtered = searchProducts(filtered, q);
 
+  if (!filtered.length && !allProducts.length) return; // Still loading or showing error
+
   if (!filtered.length) {
     grid.innerHTML = `<div class="no-results"><div class="icon">🔍</div><b>No products found</b><br/>Try a different search or category.</div>`;
     return;
   }
 
-  // Register all products in map for onclick safety
   filtered.forEach(p => { _pmap[p.id] = p; });
 
   const fragment = document.createDocumentFragment();
@@ -1030,7 +890,7 @@ function renderProducts() {
 }
 function filterProducts() { renderProducts(); }
 
-// ── CART LOGIC ────────────────────────────────────────────────
+// ── CART LOGIC ───────────────────────────────────────────────
 function addToCart(id) {
   const p = _pmap[id] || allProducts.find(x => x.id === id);
   if (!p) return;
@@ -1053,7 +913,7 @@ function changeQty(id, delta) {
 }
 
 function renderCart() {
-  const count  = cart.reduce((s, c) => s + c.qty, 0);
+  const count   = cart.reduce((s, c) => s + c.qty, 0);
   const countEl = document.getElementById('cartCount');
   countEl.textContent = count;
   countEl.classList.toggle('hidden', count === 0);
@@ -1080,9 +940,9 @@ function renderCart() {
           </div>
         </div>
         <button class="remove-item" title="Remove">🗑</button>`;
-      div.querySelector('[data-action="dec"]').onclick  = () => changeQty(c.id, -1);
-      div.querySelector('[data-action="inc"]').onclick  = () => changeQty(c.id,  1);
-      div.querySelector('.remove-item').onclick         = () => removeFromCart(c.id);
+      div.querySelector('[data-action="dec"]').onclick = () => changeQty(c.id, -1);
+      div.querySelector('[data-action="inc"]').onclick = () => changeQty(c.id,  1);
+      div.querySelector('.remove-item').onclick        = () => removeFromCart(c.id);
       frag.appendChild(div);
     });
     itemsEl.innerHTML = '';
@@ -1101,11 +961,11 @@ function renderCart() {
   document.getElementById('mcbTotal').textContent = 'Price confirmed after order';
 }
 
-// ── CART DRAWER ───────────────────────────────────────────────
+// ── CART DRAWER ──────────────────────────────────────────────
 function openCart()  { document.getElementById('cartDrawer').classList.add('open');    document.getElementById('drawerOverlay').classList.add('open'); }
 function closeCart() { document.getElementById('cartDrawer').classList.remove('open'); document.getElementById('drawerOverlay').classList.remove('open'); }
 
-// ── CHECKOUT ──────────────────────────────────────────────────
+// ── CHECKOUT ─────────────────────────────────────────────────
 function openCheckout() {
   closeCart();
   const box = document.getElementById('checkoutSummary');
@@ -1140,27 +1000,27 @@ async function placeOrder() {
   const note    = document.getElementById('custNote').value.trim();
   const payment = document.querySelector('input[name="payment"]:checked')?.value || 'cod';
 
-  if (!name)                             { showToast('⚠️ নাম লিখুন / Please enter your name'); return; }
-  if (!phone)                            { showToast('⚠️ ফোন নম্বর লিখুন / Please enter phone'); return; }
-  if (!address)                          { showToast('⚠️ ঠিকানা লিখুন / Please enter address'); return; }
-  if (!city)                             { showToast('⚠️ শহর বেছে নিন / Please select city'); return; }
-  if (!/^01[3-9]\d{8}$/.test(phone))    { showToast('⚠️ সঠিক বাংলাদেশি নম্বর দিন / Enter valid BD phone'); return; }
-  if (!cart.length)                      { showToast('⚠️ কার্ট খালি / Cart is empty'); return; }
+  if (!name)                           { showToast('⚠️ নাম লিখুন / Please enter your name'); return; }
+  if (!phone)                          { showToast('⚠️ ফোন নম্বর লিখুন / Please enter phone'); return; }
+  if (!address)                        { showToast('⚠️ ঠিকানা লিখুন / Please enter address'); return; }
+  if (!city)                           { showToast('⚠️ শহর বেছে নিন / Please select city'); return; }
+  if (!/^01[3-9]\d{8}$/.test(phone))  { showToast('⚠️ সঠিক বাংলাদেশি নম্বর দিন / Enter valid BD phone'); return; }
+  if (!cart.length)                    { showToast('⚠️ কার্ট খালি / Cart is empty'); return; }
 
-  const orderId    = 'SK-' + Date.now().toString().slice(-6);
-  const timestamp  = new Date().toLocaleString('en-BD', { timeZone: 'Asia/Dhaka' });
   const orderItems = cart.map(c => ({ name: c.name, qty: c.qty }));
-
-  const placeBtn = document.querySelector('.btn-primary[onclick="placeOrder()"]');
+  const placeBtn   = document.querySelector('.btn-primary[onclick="placeOrder()"]');
   if (placeBtn) { placeBtn.textContent = 'Placing order…'; placeBtn.disabled = true; }
 
   const { ok, data } = await jsonFetch('/api/order', {
-    method: 'POST',
+    method:  'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ orderId, timestamp, name, phone, email: email || '-', address, city, note, payment, items: orderItems }),
+    body:    JSON.stringify({ name, phone, email: email || '', address, city, note, payment, items: orderItems }),
   });
 
   if (placeBtn) { placeBtn.textContent = '✅ Place Order'; placeBtn.disabled = false; }
+
+  // Server generates orderId; fall back to client-side one for display if API failed
+  const orderId = (ok && data.orderId) ? data.orderId : ('SK-' + Date.now().toString(36).toUpperCase().slice(-6));
 
   const payInstr = payment === 'bkash_personal'
     ? `<div style="background:#fce4ec;padding:12px 16px;border-radius:8px;margin-top:12px;font-size:0.88rem">📱 <strong>bKash Personal:</strong> Send payment to <strong style="color:#c2185b">01921962964</strong><br/><small>Use order ID <strong>#${esc(orderId)}</strong> as reference</small></div>`
@@ -1175,8 +1035,6 @@ async function placeOrder() {
     </div>`;
 
   const cartSnapshot = [...cart];
-
-  // Build success body using DOM to avoid XSS from user-entered data
   const body = document.getElementById('successBody');
   body.innerHTML = `
     <div style="text-align:center;padding:8px 0 16px">
@@ -1191,18 +1049,18 @@ async function placeOrder() {
     <div class="items-list" style="background:var(--bg);border-radius:8px;padding:12px 14px;margin-bottom:14px"></div>
     <div style="font-size:0.88rem;font-weight:700;margin-bottom:6px;color:var(--text)">Delivery To</div>
     <div class="delivery-addr" style="font-size:0.85rem;color:var(--text-muted);margin-bottom:14px"></div>`;
+
   body.querySelector('strong').textContent = name;
   body.querySelector('[style*="1.2rem"]').textContent = '#' + orderId;
   cartSnapshot.forEach(c => {
     const row = document.createElement('div');
     row.style.cssText = 'display:flex;justify-content:space-between;padding:4px 0;font-size:0.85rem;border-bottom:1px solid var(--border)';
-    const span1 = document.createElement('span'); span1.textContent = c.name;
-    const span2 = document.createElement('span'); span2.style.fontWeight = '700'; span2.textContent = '×' + c.qty;
-    row.appendChild(span1); row.appendChild(span2);
+    const s1 = document.createElement('span'); s1.textContent = c.name;
+    const s2 = document.createElement('span'); s2.style.fontWeight = '700'; s2.textContent = '×' + c.qty;
+    row.appendChild(s1); row.appendChild(s2);
     body.querySelector('.items-list').appendChild(row);
   });
   body.querySelector('.delivery-addr').textContent = `${address}, ${city}`;
-  // payInstr and apiWarning are shop-controlled strings (not user input), safe to inject
   body.insertAdjacentHTML('beforeend', payInstr + apiWarning);
   if (email) {
     const ep = document.createElement('p');
@@ -1212,15 +1070,15 @@ async function placeOrder() {
     body.appendChild(ep);
   }
 
-  closeCheckout();
-  openModal('successModal');
-  cart = []; saveCart(); renderCart(); renderProducts();
+  if (ok) { cart = []; saveCart(); renderCart(); renderProducts(); }
   ['custName','custPhone','custEmail','custAddress','custNote'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('custCity').value = '';
+  closeCheckout();
+  openModal('successModal');
 }
 function closeSuccess() { closeModal('successModal'); }
 
-// ── TOAST ─────────────────────────────────────────────────────
+// ── TOAST ────────────────────────────────────────────────────
 let _toastTimer;
 function showToast(msg) {
   const t = document.getElementById('toast');
@@ -1230,12 +1088,14 @@ function showToast(msg) {
   _toastTimer = setTimeout(() => t.classList.remove('show'), 2800);
 }
 
-// ── PRODUCT DETAIL POPUP ──────────────────────────────────────
+// ── PRODUCT DETAIL POPUP ─────────────────────────────────────
 let pdProduct = null;
 let pdQty     = 1;
 const catEmoji = {
   Pottery:'🏺','Steel Products':'🔩','Wood Craft':'🪵',
   'Jute Goods':'🧺','Bamboo Craft':'🎋',Miscellaneous:'🛍','Mini Aquarium':'🐠',
+  'Copper Craft':'🪙','Cane Craft':'🪑','Handmade Lamps':'🪔',
+  'Fountain Craft':'⛲','Ornaments':'💍','Gift Items':'🎁','Ship Souvenirs':'🚢',
 };
 
 function openProduct(id) {
@@ -1243,7 +1103,6 @@ function openProduct(id) {
   if (!p) return;
   pdProduct = p; pdQty = 1;
 
-  // Populate using textContent/DOM — never innerHTML for user data
   document.getElementById('pdQty').textContent    = 1;
   document.getElementById('pdCat').textContent    = p.cat;
   document.getElementById('pdName').textContent   = p.name;
@@ -1291,8 +1150,9 @@ function pdAddToCart() {
 }
 function pdBuyNow() { pdAddToCart(); setTimeout(openCheckout, 150); }
 
-// ── START ─────────────────────────────────────────────────────
+// ── START ────────────────────────────────────────────────────
 init();
+
 </script>
 </body>
 </html>

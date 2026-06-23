@@ -1,43 +1,20 @@
 const nodemailer = require('nodemailer');
-const { getSheetsClient, ok, fail, setCors, esc } = require('./_lib');
+const { getSupabase, ok, fail, setCors, esc } = require('./_lib');
 
 function validateBody(b) {
-  if (!b || typeof b !== 'object')            return 'Request body missing';
-  if (!String(b.name    || '').trim())        return 'Name is required';
-  if (!String(b.phone   || '').trim())        return 'Phone is required';
-  if (!String(b.address || '').trim())        return 'Address is required';
-  if (!String(b.city    || '').trim())        return 'City is required';
-  if (!Array.isArray(b.items) || !b.items.length) return 'Cart is empty';
+  if (!b || typeof b !== 'object')                    return 'Request body missing';
+  if (!String(b.name    || '').trim())                return 'Name is required';
+  if (!String(b.phone   || '').trim())                return 'Phone is required';
+  if (!String(b.address || '').trim())                return 'Address is required';
+  if (!String(b.city    || '').trim())                return 'City is required';
+  if (!Array.isArray(b.items) || !b.items.length)     return 'Cart is empty';
   if (!/^01[3-9]\d{8}$/.test(String(b.phone).trim())) return 'Invalid BD phone number';
   return null;
 }
 
-async function saveToSheet(d) {
-  const sheets    = getSheetsClient();
-  const itemsList = d.items.map(i => `${esc(i.name)} ×${Math.max(1, parseInt(i.qty) || 1)}`).join(' | ');
-  await sheets.spreadsheets.values.append({
-    spreadsheetId: process.env.GOOGLE_SHEET_ID,
-    range: 'Orders!A:K',
-    valueInputOption: 'USER_ENTERED',
-    requestBody: { values: [[
-      d.timestamp || new Date().toISOString(),
-      d.orderId,
-      String(d.name).trim(),
-      String(d.phone).trim(),
-      String(d.email || '-').trim() || '-',
-      String(d.address).trim(),
-      String(d.city).trim(),
-      itemsList,
-      d.payment || 'cod',
-      String(d.note || '-').trim() || '-',
-      'Pending',
-    ]] },
-  });
-}
-
 async function sendEmail(d) {
   if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) return;
-  if (!d.email || d.email === '-') return;
+  if (!d.email) return;
 
   const transporter = nodemailer.createTransport({
     service: 'gmail',
@@ -55,7 +32,7 @@ async function sendEmail(d) {
     ? '<p style="background:#fff3cd;padding:12px 16px;border-radius:8px;margin:16px 0"><strong>bKash Personal:</strong> Send payment to <strong>01921962964</strong></p>'
     : d.payment === 'bkash_payment'
     ? '<p style="background:#fff3cd;padding:12px 16px;border-radius:8px;margin:16px 0"><strong>bKash Payment:</strong> Send payment to <strong>01677459360</strong></p>'
-    : '<p style="background:#e8f5e9;padding:12px 16px;border-radius:8px;margin:16px 0"><strong>Cash on Delivery</strong> — Pay when you receive your order.</p>';
+    : '<p style="background:#e8f5e9;padding:12px 16px;border-radius:8px;margin:16px 0"><strong>Cash on Delivery</strong> — Pay when your order arrives.</p>';
 
   const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"/></head>
 <body style="margin:0;padding:0;font-family:Arial,sans-serif;background:#FAF7F2;color:#2C1810">
@@ -81,11 +58,11 @@ async function sendEmail(d) {
     </table>
     <h3 style="color:#2C1810;font-size:0.95rem;margin:0 0 8px">Delivery Address</h3>
     <p style="color:#7A5C4A;margin:0 0 20px">${esc(d.address)}, ${esc(d.city)}</p>
-    ${d.note && d.note !== '-' ? `<h3 style="color:#2C1810;font-size:0.95rem;margin:0 0 8px">Special Note</h3><p style="color:#7A5C4A;margin:0 0 20px">${esc(d.note)}</p>` : ''}
+    ${d.note ? `<h3 style="color:#2C1810;font-size:0.95rem;margin:0 0 8px">Special Note</h3><p style="color:#7A5C4A;margin:0 0 20px">${esc(d.note)}</p>` : ''}
     <h3 style="color:#2C1810;font-size:0.95rem;margin:0 0 8px">Payment</h3>
     ${payNote}
     <p style="color:#7A5C4A;font-size:0.85rem;margin:24px 0 0;padding-top:20px;border-top:1px solid #E8D5C0">
-      Questions? Call or WhatsApp us at <strong>01921962964</strong>
+      Questions? Call or WhatsApp: <strong>01921962964</strong>
     </p>
   </div>
   <div style="background:#6B3410;padding:16px 32px;text-align:center">
@@ -95,8 +72,8 @@ async function sendEmail(d) {
 </body></html>`;
 
   await transporter.sendMail({
-    from: `"সৌখিন কুটিরশিল্প" <${process.env.GMAIL_USER}>`,
-    to: d.email,
+    from:    `"সৌখিন কুটিরশিল্প" <${process.env.GMAIL_USER}>`,
+    to:      d.email,
     subject: `✅ Order Confirmed #${d.orderId} — Soukhin Cottage Crafts`,
     html,
   });
@@ -106,20 +83,40 @@ module.exports = async function handler(req, res) {
   setCors(res, 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') return res.status(200).end();
-  if (req.method !== 'POST') return fail(res, 405, 'Method not allowed');
+  if (req.method !== 'POST')   return fail(res, 405, 'Method not allowed');
 
   const err = validateBody(req.body);
   if (err) return fail(res, 400, err);
 
+  const b       = req.body;
+  const orderId = 'SK-' + Date.now().toString(36).toUpperCase().slice(-6);
+  const now     = new Date().toISOString();
+
   try {
-    await saveToSheet(req.body);
+    const supabase = getSupabase();
+    const { error } = await supabase.from('orders').insert({
+      id:            orderId,
+      customer_name: String(b.name).trim(),
+      phone:         String(b.phone).trim(),
+      email:         String(b.email || '').trim() || null,
+      address:       String(b.address).trim(),
+      city:          String(b.city).trim(),
+      items:         b.items,
+      payment:       b.payment || 'cod',
+      note:          String(b.note || '').trim() || null,
+      status:        'Pending',
+      total_bdt:     0,
+      created_at:    now,
+      updated_at:    now,
+    });
+    if (error) throw error;
   } catch (e) {
-    console.error('Sheet save error:', e);
+    console.error('Order save error:', e);
     return fail(res, 500, 'Failed to save order. Please try again.');
   }
 
-  // Email is best-effort — never fail the order over it
-  try { await sendEmail(req.body); } catch (e) { console.error('Email error (non-fatal):', e.message); }
+  // Email is best-effort — never fail the order because of it
+  try { await sendEmail({ ...b, orderId }); } catch (e) { console.error('Email error (non-fatal):', e.message); }
 
-  return ok(res);
+  return ok(res, { orderId });
 };
